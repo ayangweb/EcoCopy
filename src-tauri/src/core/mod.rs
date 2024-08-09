@@ -1,3 +1,4 @@
 pub mod app;
-pub mod tray;
+pub mod error;
 pub mod info;
+pub mod tray;
