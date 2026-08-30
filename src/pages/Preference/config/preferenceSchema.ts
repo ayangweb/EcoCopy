@@ -1,6 +1,7 @@
 import { CAPTURE_KIND_OPTIONS } from "@/constants/captureKinds";
 import { ITEM_ACTION_OPTIONS } from "@/constants/itemActions";
 import { LANGUAGE_OPTIONS } from "@/constants/languages";
+import { MENU_ACTION_OPTIONS } from "@/constants/menuActions";
 import {
   WINDOW_OPEN_CATEGORY_OPTIONS,
   WINDOW_OPEN_RANGE_OPTIONS,
@@ -414,6 +415,44 @@ export const preferenceTabs: PreferenceTab[] = [
             value: (settings) => {
               return settings.clipboard.content
                 .deleteFavoriteItemsOnlyInFavoriteGroup;
+            },
+          },
+        ],
+      },
+      {
+        id: "menu",
+        settings: [
+          {
+            control: {
+              options: MENU_ACTION_OPTIONS,
+              orderPath: ["menu", "order"],
+              type: "sortableCheckboxTree",
+            },
+            id: "menu.actions",
+            keywords: ["menu", "right-click", "context", "order", "visibility"],
+            path: ["menu", "visibleActions"],
+            value: (settings) => {
+              return {
+                order: settings.menu.order,
+                selected: settings.menu.visibleActions,
+              };
+            },
+          },
+          {
+            control: {
+              options: MENU_ACTION_OPTIONS,
+              orderPath: ["menu", "aiOrder"],
+              type: "sortableCheckboxTree",
+            },
+            disabledWhen: () => true,
+            id: "menu.ai",
+            keywords: ["menu", "ai", "placeholder"],
+            path: ["menu", "aiVisible"],
+            value: (settings) => {
+              return {
+                order: settings.menu.aiOrder,
+                selected: settings.menu.aiVisible,
+              };
             },
           },
         ],

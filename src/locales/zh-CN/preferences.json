@@ -111,6 +111,9 @@
       "localData": {
         "title": "存储位置"
       },
+      "menu": {
+        "title": "右键菜单"
+      },
       "organizing": {
         "title": "收藏与备注"
       },
@@ -414,6 +417,34 @@
           "controlLabel": "打开",
           "description": "打开用于排查问题的运行日志目录。",
           "title": "日志目录"
+        }
+      },
+      "menu": {
+        "actions": {
+          "controlLabel": "管理",
+          "description": "调整右键菜单中各项的显示顺序与可见性。",
+          "options": {
+            "copy": "复制",
+            "delete": "删除",
+            "editNote": "编辑备注",
+            "moveToGroup": "移动到分组",
+            "openLink": "打开链接",
+            "paste": "粘贴",
+            "pasteAsPath": "粘贴为路径",
+            "pasteAsPlainText": "粘贴为纯文本",
+            "revealInExplorer": "在资源管理器中显示",
+            "revealInFinder": "在访达中显示",
+            "saveImage": "保存图片",
+            "sendEmail": "发送邮件",
+            "toggleFavorite": "收藏 / 取消收藏",
+            "togglePinned": "置顶 / 取消置顶"
+          },
+          "title": "菜单动作排序与可见性"
+        },
+        "ai": {
+          "controlLabel": "管理",
+          "description": "AI 功能将在后续版本中上线，届时可在此配置 AI 动作的菜单显示方式。",
+          "title": "AI 动作提升（待开发）"
         }
       },
       "organizing": {
