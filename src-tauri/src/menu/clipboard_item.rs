@@ -111,7 +111,7 @@ impl ClipboardMenuAction {
 }
 
 /// 视觉分组：组间插入分隔线，组内顺序与组顺序即菜单展示顺序。两端共用。
-pub(super) const ACTION_GROUPS: &[&[ClipboardMenuAction]] = &[
+pub const ACTION_GROUPS: &[&[ClipboardMenuAction]] = &[
     &[
         ClipboardMenuAction::Paste,
         ClipboardMenuAction::PasteAsPlainText,
@@ -133,6 +133,15 @@ pub(super) const ACTION_GROUPS: &[&[ClipboardMenuAction]] = &[
     ],
     &[ClipboardMenuAction::Delete],
 ];
+
+/// 按 `menu.order` 的顺序过滤 `menu.visible_actions`，返回实际展示的动作列表。
+pub fn visible_ordered_actions(menu: &crate::settings::Menu) -> Vec<ClipboardMenuAction> {
+    menu.order
+        .iter()
+        .copied()
+        .filter(|a| menu.visible_actions.contains(a))
+        .collect()
+}
 
 /// 右键菜单里的可选自定义分组；由命令入口从数据库实时读取。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -273,7 +282,11 @@ mod native {
     /// 命令本身**立刻返回**：菜单的构建与弹出都被丢到主线程上异步执行。
     /// muda 的 `MenuItem::with_id` 与 `popup_menu` 都必须主线程，且
     /// `popup_menu` 在菜单关闭前不返回（模态阻塞）。
-    pub(super) fn popup(app: &AppHandle, request: ClipboardItemMenuRequest) -> Result<()> {
+    pub(super) fn popup(
+        app: &AppHandle,
+        request: ClipboardItemMenuRequest,
+        menu: &crate::settings::Menu,
+    ) -> Result<()> {
         let state = app.try_state::<ClipboardItemMenuState>().ok_or_else(|| {
             AppError::Other(anyhow::anyhow!("ClipboardItemMenuState not managed"))
         })?;
@@ -286,9 +299,10 @@ mod native {
         let app_for_main = app.clone();
         let window_for_main = window.clone();
         let lang = crate::i18n::current_language(app);
+        let menu_for_main = menu.clone();
         window
             .run_on_main_thread(move || {
-                let menu = match build_menu(&app_for_main, &request, lang) {
+                let menu = match build_menu(&app_for_main, &request, lang, &menu_for_main) {
                     Ok(m) => m,
                     Err(err) => {
                         log::warn!("build clipboard item menu failed: {err}");
@@ -317,10 +331,21 @@ mod native {
             })
     }
 
+    fn action_group(action: ClipboardMenuAction) -> usize {
+        for (i, group) in ACTION_GROUPS.iter().enumerate() {
+            if group.contains(&action) {
+                return i;
+            }
+        }
+
+        ACTION_GROUPS.len()
+    }
+
     fn build_menu(
         app: &AppHandle,
         request: &ClipboardItemMenuRequest,
         lang: Language,
+        menu: &crate::settings::Menu,
     ) -> Result<Menu<Wry>> {
         let mut active: HashSet<ClipboardMenuAction> =
             request.available_actions.iter().copied().collect();
@@ -334,56 +359,69 @@ mod native {
             Sep(PredefinedMenuItem<Wry>),
         }
         let mut entries: Vec<Entry> = Vec::new();
-        let mut first_group = true;
+        let mut prev_group: Option<usize> = None;
 
-        for group in ACTION_GROUPS {
-            let group_items: Vec<ClipboardMenuAction> = group
-                .iter()
-                .copied()
-                .filter(|a| active.contains(a))
-                .collect();
-            if group_items.is_empty() {
+        for action in visible_ordered_actions(menu) {
+            if !active.contains(&action) {
                 continue;
             }
 
-            if !first_group {
+            let group = action_group(action);
+
+            if prev_group.is_some() && prev_group != Some(group) {
                 let sep = PredefinedMenuItem::separator(app).context("build separator")?;
                 entries.push(Entry::Sep(sep));
             }
-            first_group = false;
+            prev_group = Some(group);
 
-            for action in group_items {
-                if action == ClipboardMenuAction::MoveToGroup {
-                    let submenu = build_group_submenu(
-                        app,
-                        &request.groups,
-                        request.current_group_id.as_deref(),
-                        action.label(
-                            lang,
-                            request.is_favorite,
-                            request.is_pinned,
-                            request.has_note,
-                        ),
-                    )?;
-                    entries.push(Entry::Submenu(submenu));
-                    continue;
-                }
-
-                let item = MenuItem::with_id(
+            if action == ClipboardMenuAction::MoveToGroup {
+                let submenu = build_group_submenu(
                     app,
-                    action.id(),
+                    &request.groups,
+                    request.current_group_id.as_deref(),
                     action.label(
                         lang,
                         request.is_favorite,
                         request.is_pinned,
                         request.has_note,
                     ),
-                    true,
-                    action.accelerator(),
-                )
-                .with_context(|| format!("build menu item {}", action.id()))?;
-                entries.push(Entry::Item(item));
+                )?;
+                entries.push(Entry::Submenu(submenu));
+                continue;
             }
+
+            let item = MenuItem::with_id(
+                app,
+                action.id(),
+                action.label(
+                    lang,
+                    request.is_favorite,
+                    request.is_pinned,
+                    request.has_note,
+                ),
+                true,
+                action.accelerator(),
+            )
+            .with_context(|| format!("build menu item {}", action.id()))?;
+            entries.push(Entry::Item(item));
+        }
+
+        // AI 占位：本 commit 无 AI 命令，展示为不可点击的菜单项。
+        if !menu.ai_visible.is_empty() {
+            if !entries.is_empty() {
+                let sep = PredefinedMenuItem::separator(app).context("build separator")?;
+                entries.push(Entry::Sep(sep));
+            }
+
+            let ai_item = MenuItem::with_id(
+                app,
+                "cim::ai::placeholder",
+                "AI（待开发）",
+                false,
+                None::<&str>,
+            )
+            .context("build ai placeholder menu item")?;
+            entries.push(Entry::Item(ai_item));
         }
 
         let refs: Vec<&dyn IsMenuItem<Wry>> = entries
@@ -490,6 +528,7 @@ pub fn init(app: &AppHandle) {
 pub async fn popup_clipboard_item_menu(
     app: AppHandle,
     db: State<'_, DatabaseState>,
+    settings: State<'_, crate::settings::SettingsStore>,
     input: PopupClipboardItemMenuInput,
 ) -> Result<()> {
     let pool = db.pool().await;
@@ -511,15 +550,16 @@ pub async fn popup_clipboard_item_menu(
         is_pinned: input.is_pinned,
         has_note: input.has_note,
     };
+    let menu = settings.snapshot().menu;
 
     #[cfg(target_os = "macos")]
     {
-        native::popup(&app, request)
+        native::popup(&app, request, &menu)
     }
 
     #[cfg(target_os = "windows")]
     {
-        super::context_window::show_for_clipboard_item(&app, &request)
+        super::context_window::show_for_clipboard_item(&app, &request, &menu)
     }
 }
 
@@ -528,4 +568,78 @@ pub async fn popup_clipboard_item_menu(
 pub fn handle_menu_event(app: &AppHandle, menu_id: &str) {
     #[cfg(target_os = "macos")]
     native::handle_event(app, menu_id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn visible_ordered_actions_default_returns_all_fourteen() {
+        let menu = crate::settings::Menu::default();
+        let actions = visible_ordered_actions(&menu);
+
+        assert_eq!(actions.len(), 14);
+        assert_eq!(
+            actions,
+            vec![
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::PasteAsPlainText,
+                ClipboardMenuAction::PasteAsPath,
+                ClipboardMenuAction::Copy,
+                ClipboardMenuAction::SaveImage,
+                ClipboardMenuAction::OpenLink,
+                ClipboardMenuAction::SendEmail,
+                ClipboardMenuAction::RevealInFinder,
+                ClipboardMenuAction::RevealInExplorer,
+                ClipboardMenuAction::ToggleFavorite,
+                ClipboardMenuAction::TogglePinned,
+                ClipboardMenuAction::MoveToGroup,
+                ClipboardMenuAction::EditNote,
+                ClipboardMenuAction::Delete,
+            ]
+        );
+    }
+
+    #[test]
+    fn visible_ordered_actions_filters_hidden() {
+        let mut menu = crate::settings::Menu::default();
+        menu.visible_actions = vec![
+            ClipboardMenuAction::Paste,
+            ClipboardMenuAction::Copy,
+            ClipboardMenuAction::Delete,
+        ];
+
+        let actions = visible_ordered_actions(&menu);
+
+        assert_eq!(
+            actions,
+            vec![
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::Copy,
+                ClipboardMenuAction::Delete
+            ]
+        );
+    }
+
+    #[test]
+    fn visible_ordered_actions_respects_custom_order() {
+        let mut menu = crate::settings::Menu::default();
+        menu.order = vec![
+            ClipboardMenuAction::Delete,
+            ClipboardMenuAction::Paste,
+            ClipboardMenuAction::Copy,
+        ];
+
+        let actions = visible_ordered_actions(&menu);
+
+        assert_eq!(
+            actions,
+            vec![
+                ClipboardMenuAction::Delete,
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::Copy
+            ]
+        );
+    }
 }

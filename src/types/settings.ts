@@ -48,6 +48,22 @@ export type ItemAction =
   | "pinItem"
   | "delete";
 
+export type MenuAction =
+  | "paste"
+  | "pasteAsPlainText"
+  | "pasteAsPath"
+  | "copy"
+  | "saveImage"
+  | "openLink"
+  | "sendEmail"
+  | "revealInFinder"
+  | "revealInExplorer"
+  | "toggleFavorite"
+  | "togglePinned"
+  | "moveToGroup"
+  | "editNote"
+  | "delete";
+
 export type CaptureKind = "files" | "image" | "html" | "rtf" | "text";
 
 export type RetentionUnit = "hours" | "days" | "weeks" | "months" | "forever";
@@ -205,11 +221,19 @@ export interface Update {
   skippedVersion: string | null;
 }
 
+export interface MenuSettings {
+  visibleActions: MenuAction[];
+  order: MenuAction[];
+  aiVisible: string[];
+  aiOrder: string[];
+}
+
 export interface Settings {
   general: General;
   appearance: Appearance;
   shortcuts: Shortcuts;
   clipboard: Clipboard;
+  menu: MenuSettings;
   onboarding: Onboarding;
   update: Update;
 }

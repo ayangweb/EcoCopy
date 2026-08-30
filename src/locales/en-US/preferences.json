@@ -111,6 +111,9 @@
       "localData": {
         "title": "Storage Locations"
       },
+      "menu": {
+        "title": "Context Menu"
+      },
       "organizing": {
         "title": "Favorites & Notes"
       },
@@ -414,6 +417,34 @@
           "controlLabel": "Open",
           "description": "Open the runtime log directory used for troubleshooting.",
           "title": "Log Directory"
+        }
+      },
+      "menu": {
+        "actions": {
+          "controlLabel": "Manage",
+          "description": "Adjust the display order and visibility of context menu items.",
+          "options": {
+            "copy": "Copy",
+            "delete": "Delete",
+            "editNote": "Edit Note",
+            "moveToGroup": "Move to Group",
+            "openLink": "Open Link",
+            "paste": "Paste",
+            "pasteAsPath": "Paste as Path",
+            "pasteAsPlainText": "Paste as Plain Text",
+            "revealInExplorer": "Reveal in Explorer",
+            "revealInFinder": "Reveal in Finder",
+            "saveImage": "Save Image",
+            "sendEmail": "Send Email",
+            "toggleFavorite": "Favorite / Unfavorite",
+            "togglePinned": "Pin / Unpin"
+          },
+          "title": "Menu Action Order & Visibility"
+        },
+        "ai": {
+          "controlLabel": "Manage",
+          "description": "AI features will be available in a future update. Configure AI action menu visibility here.",
+          "title": "AI Actions (Coming Soon)"
         }
       },
       "organizing": {

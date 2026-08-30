@@ -25,7 +25,8 @@ use crate::settings::Language;
 use crate::window::lifecycle;
 
 use super::clipboard_item::{
-    ClipboardItemMenuRequest, ClipboardMenuAction, ClipboardMenuGroup, ACTION_GROUPS,
+    visible_ordered_actions, ClipboardItemMenuRequest, ClipboardMenuAction, ClipboardMenuGroup,
+    ACTION_GROUPS,
 };
 
 pub const CONTEXT_MENU_WINDOW_LABEL: &str = "context-menu";
@@ -121,17 +122,19 @@ fn build_menu_window(
 pub(super) fn show_for_clipboard_item(
     app: &AppHandle,
     request: &ClipboardItemMenuRequest,
+    menu: &crate::settings::Menu,
 ) -> Result<()> {
     let lang = crate::i18n::current_language(app);
-    let groups = build_groups(
-        &request.available_actions,
-        &request.groups,
-        request.current_group_id.as_deref(),
+    let ctx = GroupsContext {
+        clipboard_groups: &request.groups,
+        current_group_id: request.current_group_id.as_deref(),
         lang,
-        request.is_favorite,
-        request.is_pinned,
-        request.has_note,
-    );
+        is_favorite: request.is_favorite,
+        is_pinned: request.is_pinned,
+        has_note: request.has_note,
+        menu,
+    };
+    let groups = build_groups(&request.available_actions, &ctx);
     if groups.is_empty() {
         return Ok(());
     }
@@ -211,36 +214,67 @@ pub fn show_submenu(app: &AppHandle, input: ShowContextSubmenuInput) -> Result<(
     Ok(())
 }
 
-fn build_groups(
-    available: &[ClipboardMenuAction],
-    clipboard_groups: &[ClipboardMenuGroup],
-    current_group_id: Option<&str>,
+fn action_group(action: ClipboardMenuAction) -> usize {
+    for (i, group) in ACTION_GROUPS.iter().enumerate() {
+        if group.contains(&action) {
+            return i;
+        }
+    }
+
+    ACTION_GROUPS.len()
+}
+
+struct GroupsContext<'a> {
+    clipboard_groups: &'a [ClipboardMenuGroup],
+    current_group_id: Option<&'a str>,
     lang: Language,
     is_favorite: bool,
     is_pinned: bool,
     has_note: bool,
+    menu: &'a crate::settings::Menu,
+}
+
+fn build_groups(
+    available: &[ClipboardMenuAction],
+    ctx: &GroupsContext<'_>,
 ) -> Vec<Vec<ContextMenuItemPayload>> {
     let mut active = available.to_vec();
-    if !clipboard_groups.is_empty() {
+    if !ctx.clipboard_groups.is_empty() {
         active.push(ClipboardMenuAction::MoveToGroup);
     }
 
-    ACTION_GROUPS
-        .iter()
-        .map(|group| {
-            group
-                .iter()
-                .filter(|a| active.contains(a))
-                .map(|a| ContextMenuItemPayload {
-                    action: *a,
-                    label: a.label(lang, is_favorite, is_pinned, has_note).into(),
-                    accelerator: a.accelerator().map(String::from),
-                    groups: build_group_items(*a, clipboard_groups, current_group_id),
-                })
-                .collect::<Vec<_>>()
-        })
-        .filter(|g| !g.is_empty())
-        .collect()
+    let mut groups = Vec::new();
+    let mut current_group: Vec<ContextMenuItemPayload> = Vec::new();
+    let mut prev_group: Option<usize> = None;
+
+    for action in visible_ordered_actions(ctx.menu) {
+        if !active.contains(&action) {
+            continue;
+        }
+
+        let group = action_group(action);
+
+        if prev_group.is_some() && prev_group != Some(group) {
+            groups.push(current_group);
+            current_group = Vec::new();
+        }
+        prev_group = Some(group);
+
+        current_group.push(ContextMenuItemPayload {
+            action,
+            label: action
+                .label(ctx.lang, ctx.is_favorite, ctx.is_pinned, ctx.has_note)
+                .into(),
+            accelerator: action.accelerator().map(String::from),
+            groups: build_group_items(action, ctx.clipboard_groups, ctx.current_group_id),
+        });
+    }
+
+    if !current_group.is_empty() {
+        groups.push(current_group);
+    }
+
+    groups
 }
 
 fn build_group_items(

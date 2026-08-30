@@ -88,14 +88,14 @@ static DESCRIPTORS: &[WindowDescriptor] = &[
     WindowDescriptor {
         label: CONTEXT_MENU_WINDOW_LABEL,
         emits_lifecycle: true,
-        retain_policy: RetainPolicy::DestroyWhenIdle,
+        retain_policy: RetainPolicy::Permanent,
         build: Some(build_context_menu_window),
     },
     #[cfg(target_os = "windows")]
     WindowDescriptor {
         label: CONTEXT_SUBMENU_WINDOW_LABEL,
         emits_lifecycle: true,
-        retain_policy: RetainPolicy::DestroyWhenIdle,
+        retain_policy: RetainPolicy::Permanent,
         build: Some(build_context_submenu_window),
     },
 ];

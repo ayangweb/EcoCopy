@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::db::models::ClipboardItemSort;
+use crate::menu::clipboard_item::ClipboardMenuAction;
 
 pub const WINDOW_OPEN_SELECTION_PRESERVE: &str = "preserve";
 pub const WINDOW_OPEN_SELECTION_ALL: &str = "all";
@@ -17,6 +18,7 @@ pub struct Settings {
     pub appearance: Appearance,
     pub shortcuts: Shortcuts,
     pub clipboard: Clipboard,
+    pub menu: Menu,
     pub onboarding: Onboarding,
     pub update: Update,
 }
@@ -643,4 +645,106 @@ pub enum UpdateFrequency {
     Daily,
     Weekly,
     Monthly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Menu {
+    pub visible_actions: Vec<ClipboardMenuAction>,
+    pub order: Vec<ClipboardMenuAction>,
+    pub ai_visible: Vec<String>,
+    pub ai_order: Vec<String>,
+}
+
+impl Default for Menu {
+    fn default() -> Self {
+        Self {
+            visible_actions: vec![
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::PasteAsPlainText,
+                ClipboardMenuAction::PasteAsPath,
+                ClipboardMenuAction::Copy,
+                ClipboardMenuAction::SaveImage,
+                ClipboardMenuAction::OpenLink,
+                ClipboardMenuAction::SendEmail,
+                ClipboardMenuAction::RevealInFinder,
+                ClipboardMenuAction::RevealInExplorer,
+                ClipboardMenuAction::ToggleFavorite,
+                ClipboardMenuAction::TogglePinned,
+                ClipboardMenuAction::MoveToGroup,
+                ClipboardMenuAction::EditNote,
+                ClipboardMenuAction::Delete,
+            ],
+            order: vec![
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::PasteAsPlainText,
+                ClipboardMenuAction::PasteAsPath,
+                ClipboardMenuAction::Copy,
+                ClipboardMenuAction::SaveImage,
+                ClipboardMenuAction::OpenLink,
+                ClipboardMenuAction::SendEmail,
+                ClipboardMenuAction::RevealInFinder,
+                ClipboardMenuAction::RevealInExplorer,
+                ClipboardMenuAction::ToggleFavorite,
+                ClipboardMenuAction::TogglePinned,
+                ClipboardMenuAction::MoveToGroup,
+                ClipboardMenuAction::EditNote,
+                ClipboardMenuAction::Delete,
+            ],
+            ai_visible: Vec::new(),
+            ai_order: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod menu_tests {
+    use super::*;
+
+    #[test]
+    fn menu_default_contains_all_fourteen_actions() {
+        let menu = Menu::default();
+
+        assert_eq!(menu.visible_actions.len(), 14);
+        assert_eq!(menu.order.len(), 14);
+    }
+
+    #[test]
+    fn menu_default_order_matches_action_groups() {
+        let menu = Menu::default();
+        let expected = vec![
+            ClipboardMenuAction::Paste,
+            ClipboardMenuAction::PasteAsPlainText,
+            ClipboardMenuAction::PasteAsPath,
+            ClipboardMenuAction::Copy,
+            ClipboardMenuAction::SaveImage,
+            ClipboardMenuAction::OpenLink,
+            ClipboardMenuAction::SendEmail,
+            ClipboardMenuAction::RevealInFinder,
+            ClipboardMenuAction::RevealInExplorer,
+            ClipboardMenuAction::ToggleFavorite,
+            ClipboardMenuAction::TogglePinned,
+            ClipboardMenuAction::MoveToGroup,
+            ClipboardMenuAction::EditNote,
+            ClipboardMenuAction::Delete,
+        ];
+
+        assert_eq!(menu.order, expected);
+    }
+
+    #[test]
+    fn menu_deserialize_missing_field_uses_default() {
+        let json = r#"{}"#;
+        let menu: Menu = serde_json::from_str(json).unwrap();
+
+        assert_eq!(menu, Menu::default());
+    }
+
+    #[test]
+    fn settings_deserialize_missing_menu_uses_default() {
+        let json = r#"{"general":{},"appearance":{},"shortcuts":{},"clipboard":{},"onboarding":{},"update":{}}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+
+        assert_eq!(settings.menu, Menu::default());
+    }
 }
