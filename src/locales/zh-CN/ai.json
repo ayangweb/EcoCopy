@@ -1,0 +1,59 @@
+{
+  "modelProfiles": {
+    "add": "添加模型",
+    "columns": {
+      "actions": "操作",
+      "baseUrl": "Base URL",
+      "model": "模型",
+      "name": "名称"
+    },
+    "defaultBadge": "默认",
+    "deleteConfirmContent": "确定要删除「{{name}}」吗？",
+    "deleteConfirmTitle": "删除模型",
+    "edit": "编辑模型",
+    "fields": {
+      "apiKey": "API Key",
+      "baseUrl": "Base URL",
+      "model": "模型名称",
+      "name": "档案名称",
+      "streaming": "流式传输"
+    },
+    "setDefault": "设为默认",
+    "test": "测试",
+    "testFailure": "连通性测试失败",
+    "testSuccess": "连通性测试成功",
+    "title": "模型管理",
+    "validation": {
+      "modelRequired": "模型名不能为空",
+      "nameRequired": "名称不能为空",
+      "urlRequired": "Base URL 不能为空"
+    }
+  },
+  "resultTitle": "AI 结果",
+  "templateModal": {
+    "add": "添加模板",
+    "columns": {
+      "actions": "操作",
+      "inputKind": "输入类型",
+      "model": "模型",
+      "name": "名称"
+    },
+    "edit": "编辑模板",
+    "form": {
+      "followDefault": "跟随默认（{{name}}）",
+      "followDefaultShort": "跟随默认",
+      "inputKind": "输入类型",
+      "model": "模型档案",
+      "name": "模板名称",
+      "prompt": "提示词",
+      "promptHint": "告诉 AI 需要完成什么任务以及结果应如何输出。剪贴板文本或图片会由程序自动传入。"
+    },
+    "inputKind": {
+      "image": "图片",
+      "text": "文本"
+    },
+    "title": "动作模板"
+  },
+  "waiting": "等待 AI 响应...",
+  "writeback": "写回剪贴板"
+}

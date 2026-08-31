@@ -21,12 +21,14 @@ import {
   openClipboardItemLink,
   pasteClipboardItem,
   revealClipboardItem,
+  runAiAction,
   saveClipboardImageToFile,
   toggleClipboardItemFavorite,
   toggleClipboardItemPinned,
   updateClipboardItemGroup,
   writeToClipboard,
 } from "@/commands";
+import AiResultModal from "@/components/AiResultModal";
 import VirtuosoScroller, {
   type VirtuosoScrollerChildrenProps,
 } from "@/components/VirtuosoScroller";
@@ -38,6 +40,7 @@ import {
   WINDOW_OPEN_SELECTION_PRESERVE,
 } from "@/constants/windowOpenSelection";
 import { WINDOW_LABEL } from "@/constants/windows";
+import { useAiActions } from "@/hooks/useAiActions";
 import { useClipboardItems } from "@/hooks/useClipboardItems";
 import { useKeyboardEvent } from "@/hooks/useKeyboardEvent";
 import { useTauriListen } from "@/hooks/useTauriListen";
@@ -77,6 +80,7 @@ interface ClipboardMenuActionPayload {
   action: ClipboardAction;
   groupId?: string;
   itemId: string;
+  aiActionId?: string;
 }
 
 /**
@@ -90,6 +94,7 @@ const List: FC = () => {
   const [isModifierPressed, setIsModifierPressed] = useState(false);
   const [customGroups, setCustomGroups] = useState<ClipboardGroupRecord[]>([]);
   const [noteTarget, setNoteTarget] = useState<ClipboardItem | null>(null);
+  const [aiRequestId, setAiRequestId] = useState<string | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isAtTopRef = useRef(true);
   const itemElementMapRef = useRef(new Map<string, HTMLDivElement>());
@@ -111,6 +116,7 @@ const List: FC = () => {
   const sort = settings.clipboard.content.sort;
   const redactSecrets = settings.clipboard.sensitive.redactSecrets;
   const quickActions = settings.clipboard.content.itemActions;
+  const aiQuickActions = settings.ai.quickActions;
   const deleteFavoriteItems = settings.clipboard.content.deleteFavoriteItems;
   const deletePinnedItems = settings.clipboard.content.deletePinnedItems;
   const deleteFavoriteItemsOnlyInFavoriteGroup =
@@ -181,6 +187,8 @@ const List: FC = () => {
     closePreviewRef.current("displaySettingChange");
     reloadCurrentRangeRef.current();
   }, [fileMaxCount, redactSecrets]);
+
+  const { data: aiActions = [] } = useAiActions();
 
   /**
    * 从 Rust 拉取自定义分组，用于空状态展示当前分组名称。
@@ -512,6 +520,21 @@ const List: FC = () => {
   };
 
   /**
+   * 触发 AI 动作并发起请求。右键菜单和 hover 快捷按钮共用此入口，
+   * 避免两条路径的逻辑重复。
+   */
+  const triggerAiAction = (itemId: string, actionId: string) => {
+    void (async () => {
+      try {
+        const reqId = await runAiAction({ actionId, itemId });
+        setAiRequestId(reqId);
+      } catch {
+        // call() 已弹 toast
+      }
+    })();
+  };
+
+  /**
    * Rust 右键菜单点击事件：携带 `{action, itemId}`。
    * 用 ref 持续指向「当前 render 的派发函数」，规避 `useTauriListen` 只在挂载时
    * 抓一次闭包导致的状态过期（同款做法见 `handleClipboardUpdated`）。
@@ -575,6 +598,13 @@ const List: FC = () => {
 
         handleShortcutDelete(target.id);
         return;
+      case "aiProcess": {
+        const aiActionId = payload.aiActionId;
+        if (!aiActionId) return;
+
+        triggerAiAction(target.id, aiActionId);
+        return;
+      }
     }
   };
 
@@ -812,6 +842,11 @@ const List: FC = () => {
         onClose={handleCloseNote}
         onSaved={handleNoteSaved}
       />
+
+      <AiResultModal
+        onCancel={() => setAiRequestId(null)}
+        requestId={aiRequestId}
+      />
     </div>
   );
 
@@ -926,6 +961,10 @@ const List: FC = () => {
       }
     };
 
+    const handleAiAction = (actionId: string) => {
+      triggerAiAction(item.id, actionId);
+    };
+
     const handleMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
       if (event.button !== 0) {
         if (event.button !== 1) return;
@@ -1009,6 +1048,8 @@ const List: FC = () => {
     return (
       <div className={cn("px-3", { "pt-3": index !== 0 })}>
         <ClipboardCard
+          aiActions={aiActions}
+          aiQuickActions={aiQuickActions}
           availableActions={availableActions}
           hintKey={hintKey}
           isLinkActive={isModifierPressed}
@@ -1018,6 +1059,7 @@ const List: FC = () => {
               : item.id === selectedId
           }
           item={item}
+          onAiAction={handleAiAction}
           onAuxClick={handleAuxClick}
           onDoubleClick={handleDoubleClick}
           onMouseDown={handleMouseDown}

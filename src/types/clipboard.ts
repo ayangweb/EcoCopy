@@ -33,7 +33,8 @@ export type ClipboardAction =
   | "togglePinned"
   | "moveToGroup"
   | "editNote"
-  | "delete";
+  | "delete"
+  | "aiProcess";
 
 export interface ClipboardItem {
   id: string;

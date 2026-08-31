@@ -146,6 +146,37 @@ fn clip_err<E: std::fmt::Display>(err: E) -> AppError {
     AppError::Clipboard(err.to_string())
 }
 
+/// 把 AI 生成的文本写回系统剪贴板（不依赖 DB 记录）。
+///
+/// 与 `write_to_clipboard` 的区别：入参是裸文本而非 `ClipboardItem`，因为 AI
+/// 结果尚未入库。写回前 trim 后登记 `content_hash`（与监听侧 `draft_from_text`
+/// 同源），写后回读校验是否真落到剪贴板。
+pub fn write_ai_text_to_clipboard(guard: &WritebackGuard, text: &str) -> Result<()> {
+    // 监听侧 `draft_from_text` 会对读回内容先 trim 再算哈希，登记指纹必须同源
+    // （模型输出常带首尾空白），否则回环抑制失效、结果被当成新复制入库。
+    let trimmed = text.trim();
+    guard.suppress(content_hash(ClipboardKind::Text, trimmed));
+
+    let ctx = ClipboardContext::new().map_err(clip_err)?;
+    ctx.set_text(trimmed.to_owned()).map_err(clip_err)?;
+
+    // 写后回读校验：clipboard-rs 返回 Ok 不保证内容真落到系统剪贴板（可能被
+    // 其它占用剪贴板的程序吞掉），读回不一致记 error 供排查「提示已写回但没写上」。
+    let read_back = ctx.get_text().map_err(clip_err)?;
+    if read_back.trim() != trimmed {
+        log::error!(
+            "ai writeback read-back mismatch: wrote {} chars, read back {} chars",
+            trimmed.chars().count(),
+            read_back.chars().count()
+        );
+        return Err(AppError::Ai("写回剪贴板未生效，请重试".into()));
+    }
+
+    log::info!("ai writeback ok: {} chars", trimmed.chars().count());
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::payload::ImagePayload;

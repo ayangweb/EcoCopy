@@ -29,19 +29,28 @@ import {
 import CustomIconButton from "@/components/CustomIconButton";
 import { GITHUB_URL } from "@/constants/urls";
 import { WINDOW_LABEL } from "@/constants/windows";
-import { resetSettings } from "@/stores/settings";
+import {
+  resetSettings,
+  settingsState,
+  updateSettings,
+} from "@/stores/settings";
 import type { ClipboardGroupRecord } from "@/types/clipboard";
+import type { AiActionTemplate, AiModelProfile } from "@/types/settings";
 import { getModalApi } from "@/utils/feedback";
 import { log } from "@/utils/log";
 import type { PreferenceSetting } from "../../types/preferences";
 import { translatePreferenceControlLabel } from "../../utils/preferenceI18n";
+import AiModelProfilesModal from "../AiModelProfilesModal";
+import AiTemplateModal from "../AiTemplateModal";
 import BackupExportModal from "../BackupExportModal";
 import ClipboardGroupManagerModal from "../ClipboardGroupManagerModal";
 import ControlFrame from "./ControlFrame";
 
-const BACKUP_EXTENSION = "ecopastebak";
 const ABOUT_CHECK_UPDATES_SETTING_ID = "about.checkUpdates";
 const ABOUT_GITHUB_SETTING_ID = "about.github";
+const AI_MODELS_SETTING_ID = "ai.models";
+const AI_TEMPLATES_SETTING_ID = "ai.customTemplates";
+const BACKUP_EXTENSION = "ecopastebak";
 const CLEAN_CACHE_SETTING_ID = "localData.cleanCache";
 const CUSTOM_GROUPS_SETTING_ID = "organizing.customGroups";
 const DATA_DIRECTORY_SETTING_ID = "localData.dataDirectory";
@@ -110,6 +119,8 @@ const ActionControl: FC<ActionControlProps> = (props) => {
   const [lifecycleSnapshot, setLifecycleSnapshot] = useState<
     WindowLifecycleSnapshot[]
   >([]);
+  const [modelsModalOpen, setModelsModalOpen] = useState(false);
+  const [templatesModalOpen, setTemplatesModalOpen] = useState(false);
   const windowLabel = getCurrentWebviewWindow().label;
 
   if (setting.control.type !== "action") return null;
@@ -310,6 +321,46 @@ const ActionControl: FC<ActionControlProps> = (props) => {
     setLifecycleModalOpen(false);
   };
 
+  const openModelsModal = () => {
+    setModelsModalOpen(true);
+  };
+
+  const closeModelsModal = () => {
+    setModelsModalOpen(false);
+  };
+
+  const handleModelsSaved = async (
+    models: AiModelProfile[],
+    defaultModelId: string | null,
+  ) => {
+    await updateSettings({
+      ai: {
+        defaultModelId: defaultModelId ?? undefined,
+        models,
+      },
+    });
+    setModelsModalOpen(false);
+    markActionComplete();
+  };
+
+  const openTemplatesModal = () => {
+    setTemplatesModalOpen(true);
+  };
+
+  const closeTemplatesModal = () => {
+    setTemplatesModalOpen(false);
+  };
+
+  const handleTemplatesSaved = async (templates: AiActionTemplate[]) => {
+    await updateSettings({
+      ai: {
+        customTemplates: templates,
+      },
+    });
+    setTemplatesModalOpen(false);
+    markActionComplete();
+  };
+
   const handleBackupExported = (result: ExportHistoryBackupResult) => {
     setExportModalOpen(false);
     markActionComplete(result);
@@ -367,6 +418,16 @@ const ActionControl: FC<ActionControlProps> = (props) => {
         return openPreferenceDirectory("logs");
       });
       markActionComplete();
+      return;
+    }
+
+    if (setting.id === AI_MODELS_SETTING_ID) {
+      openModelsModal();
+      return;
+    }
+
+    if (setting.id === AI_TEMPLATES_SETTING_ID) {
+      openTemplatesModal();
       return;
     }
 
@@ -478,6 +539,27 @@ const ActionControl: FC<ActionControlProps> = (props) => {
         >
           <WindowLifecycleSnapshotTable rows={lifecycleSnapshot} />
         </Modal>
+      ) : null}
+
+      {setting.id === AI_MODELS_SETTING_ID ? (
+        <AiModelProfilesModal
+          defaultModelId={settingsState.ai.defaultModelId ?? null}
+          onCancel={closeModelsModal}
+          onSave={handleModelsSaved}
+          open={modelsModalOpen}
+          profiles={settingsState.ai.models}
+        />
+      ) : null}
+
+      {setting.id === AI_TEMPLATES_SETTING_ID ? (
+        <AiTemplateModal
+          defaultModelId={settingsState.ai.defaultModelId ?? null}
+          onCancel={closeTemplatesModal}
+          onSave={handleTemplatesSaved}
+          open={templatesModalOpen}
+          profiles={settingsState.ai.models}
+          templates={settingsState.ai.customTemplates}
+        />
       ) : null}
     </>
   );

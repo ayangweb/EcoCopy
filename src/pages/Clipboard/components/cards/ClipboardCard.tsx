@@ -5,6 +5,8 @@ import { popupClipboardItemMenu, startDragClipboardItem } from "@/commands";
 import AssetImage from "@/components/AssetImage";
 import KeyHint from "@/components/KeyHint";
 import type { ItemActionLabels } from "@/constants/itemActions";
+import { aiActionMatchesItemKind } from "@/constants/menuActions";
+import type { AiActionInfo } from "@/types/ai";
 import type { ClipboardAction, ClipboardItem } from "@/types/clipboard";
 import type { ItemAction } from "@/types/settings";
 import { cn } from "@/utils/cn";
@@ -47,6 +49,9 @@ interface ClipboardCardProps {
   onQuickAction?: (action: ItemAction) => Promise<void> | void;
   showOriginalOnHover?: boolean;
   rootRef?: Ref<HTMLDivElement>;
+  aiActions?: AiActionInfo[];
+  aiQuickActions?: readonly string[];
+  onAiAction?: (actionId: string) => void;
 }
 
 /**
@@ -75,6 +80,9 @@ const ClipboardCard: FC<ClipboardCardProps> = (props) => {
     onQuickAction,
     showOriginalOnHover = true,
     rootRef,
+    aiActions = [],
+    aiQuickActions,
+    onAiAction,
   } = props;
   const { kind, sourceAppId, subKind, sourceAppIconPath, sourceAppName } = item;
   const { t } = useTranslation("clipboard");
@@ -112,6 +120,11 @@ const ClipboardCard: FC<ClipboardCardProps> = (props) => {
 
     if (actions.length === 0) return;
 
+    // 右键菜单中的 AI 动作同样按条目类型过滤，与卡片快捷动作保持一致。
+    const aiMenuActions = aiActions.filter((a) =>
+      aiActionMatchesItemKind(a.inputKind, item.kind),
+    );
+
     await popupClipboardItemMenu(
       item.id,
       [...actions],
@@ -119,6 +132,7 @@ const ClipboardCard: FC<ClipboardCardProps> = (props) => {
       isFavorite,
       isPinned,
       Boolean(note),
+      aiMenuActions,
     );
   };
 
@@ -169,8 +183,11 @@ const ClipboardCard: FC<ClipboardCardProps> = (props) => {
         </div>
 
         <ClipboardQuickActions
+          aiActions={aiActions}
+          aiQuickActions={aiQuickActions}
           item={item}
           labels={quickActionLabels}
+          onAiAction={onAiAction}
           onQuickAction={onQuickAction}
           quickActions={quickActions}
           visible={hovered}

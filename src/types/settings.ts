@@ -48,6 +48,52 @@ export type ItemAction =
   | "pinItem"
   | "delete";
 
+export type MenuAction =
+  | "paste"
+  | "pasteAsPlainText"
+  | "pasteAsPath"
+  | "copy"
+  | "saveImage"
+  | "openLink"
+  | "sendEmail"
+  | "revealInFinder"
+  | "revealInExplorer"
+  | "toggleFavorite"
+  | "togglePinned"
+  | "moveToGroup"
+  | "editNote"
+  | "delete"
+  | "aiProcess";
+
+export type AiInputKind = "text" | "image";
+
+export interface AiModelProfile {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  streaming: boolean;
+}
+
+export interface AiActionTemplate {
+  id: string;
+  name: string;
+  inputKind: AiInputKind;
+  prompt: string;
+  modelProfileId?: string;
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  autoWriteback: boolean;
+  models: AiModelProfile[];
+  defaultModelId?: string;
+  quickActions: string[];
+  customTemplates: AiActionTemplate[];
+  disabledActions: string[];
+}
+
 export type CaptureKind = "files" | "image" | "html" | "rtf" | "text";
 
 export type RetentionUnit = "hours" | "days" | "weeks" | "months" | "forever";
@@ -205,11 +251,20 @@ export interface Update {
   skippedVersion: string | null;
 }
 
+export interface MenuSettings {
+  visibleActions: MenuAction[];
+  order: MenuAction[];
+  aiVisible: string[];
+  aiOrder: string[];
+}
+
 export interface Settings {
   general: General;
   appearance: Appearance;
   shortcuts: Shortcuts;
   clipboard: Clipboard;
+  menu: MenuSettings;
+  ai: AiSettings;
   onboarding: Onboarding;
   update: Update;
 }

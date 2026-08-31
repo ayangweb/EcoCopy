@@ -1,0 +1,59 @@
+{
+  "modelProfiles": {
+    "add": "Add Model",
+    "columns": {
+      "actions": "Actions",
+      "baseUrl": "Base URL",
+      "model": "Model",
+      "name": "Name"
+    },
+    "defaultBadge": "Default",
+    "deleteConfirmContent": "Are you sure you want to delete {{name}}?",
+    "deleteConfirmTitle": "Delete Model",
+    "edit": "Edit Model",
+    "fields": {
+      "apiKey": "API Key",
+      "baseUrl": "Base URL",
+      "model": "Model Name",
+      "name": "Profile Name",
+      "streaming": "Streaming"
+    },
+    "setDefault": "Set Default",
+    "test": "Test",
+    "testFailure": "Connectivity test failed",
+    "testSuccess": "Connectivity test succeeded",
+    "title": "Model Profiles",
+    "validation": {
+      "modelRequired": "Model name is required",
+      "nameRequired": "Profile name is required",
+      "urlRequired": "Base URL is required"
+    }
+  },
+  "resultTitle": "AI Result",
+  "templateModal": {
+    "add": "Add Template",
+    "columns": {
+      "actions": "Actions",
+      "inputKind": "Input",
+      "model": "Model",
+      "name": "Name"
+    },
+    "edit": "Edit Template",
+    "form": {
+      "followDefault": "Follow default ({{name}})",
+      "followDefaultShort": "Default",
+      "inputKind": "Input Kind",
+      "model": "Model Profile",
+      "name": "Template Name",
+      "prompt": "Prompt",
+      "promptHint": "Tell AI what to do and how to format the result. Clipboard text or image input is attached automatically."
+    },
+    "inputKind": {
+      "image": "Image",
+      "text": "Text"
+    },
+    "title": "Action Templates"
+  },
+  "waiting": "Waiting for AI response...",
+  "writeback": "Write to Clipboard"
+}

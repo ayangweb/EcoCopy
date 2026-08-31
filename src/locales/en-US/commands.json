@@ -12,8 +12,10 @@
   "error": "{{label}} failed: {{message}}",
   "labels": {
     "addApp": "Add app",
+    "cancelAiRequest": "Cancel AI request",
     "cancelFavorite": "Unfavorite",
     "changeStorageLocation": "Change data directory",
+    "checkAiConnectivity": "AI connectivity check",
     "checkForUpdates": "Check for updates",
     "cleanCache": "Clean cache",
     "clearClipboardItems": "Clear records",
@@ -33,6 +35,7 @@
     "importLegacyData": "Import legacy data",
     "inspectBackup": "Inspect backup",
     "installUpdate": "Install update",
+    "loadAiActions": "Load AI actions",
     "loadApps": "Load apps",
     "loadAutostart": "Load launch-at-login state",
     "loadClipboardGroups": "Load groups",
@@ -60,6 +63,7 @@
     "restartAsAdmin": "Restart as administrator",
     "resumeGlobalShortcuts": "Resume global shortcuts",
     "reveal": "Reveal location",
+    "runAiAction": "AI process",
     "saveClipboardGroup": "Save group",
     "saveClipboardGroupsLayout": "Save group layout",
     "saveImage": "Save image",
@@ -74,7 +78,8 @@
     "skipUpdateVersion": "Skip update version",
     "suspendGlobalShortcuts": "Suspend global shortcuts",
     "toggleFavorite": "Favorite",
-    "unpinItem": "Unpin item"
+    "unpinItem": "Unpin item",
+    "writeAiResult": "Write AI result"
   },
   "messages": {
     "backupExported": "Exported {{count}} history items, backup size {{size}}",

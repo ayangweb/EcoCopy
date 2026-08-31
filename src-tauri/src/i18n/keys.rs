@@ -17,6 +17,7 @@ pub enum ClipboardMenuKey {
     AddNote,
     EditNote,
     Delete,
+    AiProcess,
 }
 
 #[derive(Debug, Clone, Copy)]

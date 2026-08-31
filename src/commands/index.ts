@@ -13,6 +13,11 @@ import { TAURI_COMMAND } from "@/constants/commands";
 import i18n from "@/i18n";
 import { settingsState } from "@/stores/settings";
 import type {
+  AiActionInfo,
+  CheckAiConnectivityInput,
+  RunAiActionInput,
+} from "@/types/ai";
+import type {
   ClipboardAction,
   ClipboardApp,
   ClipboardGroupInput,
@@ -61,6 +66,7 @@ export interface ContextMenuItemPayload {
   action: ClipboardAction;
   label: string;
   accelerator: string | null;
+  aiActionId?: string;
   groups?: ContextSubmenuGroupInput[];
 }
 
@@ -1396,12 +1402,14 @@ export const popupClipboardItemMenu = (
   isFavorite: boolean,
   isPinned: boolean,
   hasNote: boolean,
+  aiActions: AiActionInfo[] = [],
 ) => {
   return call<void>(
     TAURI_COMMAND.POPUP_CLIPBOARD_ITEM_MENU,
     "commands:labels.openMenu",
     {
       input: {
+        aiActions,
         availableActions,
         currentGroupId,
         hasNote,
@@ -1477,4 +1485,58 @@ export const hideContextMenus = async () => {
   } catch (error) {
     log.error("hide context menus failed", toAppError(error));
   }
+};
+
+/**
+ * 拉取当前可用的 AI 动作列表（未配置/未启用 → 空数组）。
+ */
+export const getAiActions = () => {
+  return call<AiActionInfo[]>(
+    TAURI_COMMAND.GET_AI_ACTIONS,
+    "commands:labels.loadAiActions",
+  );
+};
+
+/**
+ * 启动一个 AI 请求，立即返回 requestId。流式数据走 `ai://chunk` 事件。
+ */
+export const runAiAction = (input: RunAiActionInput) => {
+  return call<string>(
+    TAURI_COMMAND.RUN_AI_ACTION,
+    "commands:labels.runAiAction",
+    { input },
+  );
+};
+
+/**
+ * 取消正在运行的 AI 请求。
+ */
+export const cancelAiRequest = (requestId: string) => {
+  return call<void>(
+    TAURI_COMMAND.CANCEL_AI_REQUEST,
+    "commands:labels.cancelAiRequest",
+    { requestId },
+  );
+};
+
+/**
+ * 连通性自检：发送极短请求验证 AI 配置可用。
+ */
+export const checkAiConnectivity = (input: CheckAiConnectivityInput) => {
+  return call<string>(
+    TAURI_COMMAND.CHECK_AI_CONNECTIVITY,
+    "commands:labels.checkAiConnectivity",
+    { input },
+  );
+};
+
+/**
+ * 将 AI 结果文本写回系统剪贴板（带回环抑制，不会触发重复入库）。
+ */
+export const writeAiResultToClipboard = (text: string) => {
+  return call<void>(
+    TAURI_COMMAND.WRITE_AI_RESULT_TO_CLIPBOARD,
+    "commands:labels.writeAiResult",
+    { text },
+  );
 };

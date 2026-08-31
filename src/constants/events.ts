@@ -3,6 +3,9 @@
  * 命名采用 `domain://action` 形式（见 AGENTS.md）。
  */
 export const TAURI_EVENT = {
+  AI_CHUNK: "ai://chunk",
+  AI_DONE: "ai://done",
+  AI_ERROR: "ai://error",
   BACKUP_RECEIVED: "backup://received",
   CLIPBOARD_GROUPS_UPDATED: "clipboard-groups://updated",
   CLIPBOARD_MENU_ACTION: "clipboard://menu-action",

@@ -80,6 +80,9 @@
       "actions": {
         "title": "Quick Actions"
       },
+      "ai": {
+        "title": "AI"
+      },
       "appearance": {
         "title": "Appearance & Language"
       },
@@ -99,6 +102,9 @@
       "diagnostics": {
         "title": "Diagnostics"
       },
+      "general": {
+        "title": "General"
+      },
       "globalShortcuts": {
         "title": "Global Shortcuts"
       },
@@ -110,6 +116,12 @@
       },
       "localData": {
         "title": "Storage Locations"
+      },
+      "menu": {
+        "title": "Context Menu"
+      },
+      "models": {
+        "title": "Models"
       },
       "organizing": {
         "title": "Favorites & Notes"
@@ -131,6 +143,9 @@
       },
       "source": {
         "title": "App Filters"
+      },
+      "templates": {
+        "title": "Templates"
       },
       "updates": {
         "title": "Updates"
@@ -185,6 +200,30 @@
           "description": "Choose which action buttons appear when hovering over a record.",
           "title": "Visible Quick Actions"
         }
+      },
+      "ai": {
+        "autoWriteback": {
+          "description": "Automatically write AI results back to the clipboard.",
+          "title": "Auto Writeback"
+        },
+        "customTemplates": {
+          "controlLabel": "Manage",
+          "description": "Manage custom AI action templates.",
+          "title": "Action Templates"
+        },
+        "enabled": {
+          "description": "Enable AI processing features.",
+          "title": "Enable AI"
+        },
+        "models": {
+          "controlLabel": "Manage",
+          "description": "Configure AI model profiles.",
+          "title": "Model Profiles"
+        }
+      },
+      "aiGroup": {
+        "disabledHint": "Available after enabling AI",
+        "title": "AI Actions"
       },
       "appearance": {
         "fileMaxCount": {
@@ -416,6 +455,34 @@
           "title": "Log Directory"
         }
       },
+      "menu": {
+        "actions": {
+          "controlLabel": "Manage",
+          "description": "Adjust the display order and visibility of context menu items.",
+          "options": {
+            "copy": "Copy",
+            "delete": "Delete",
+            "editNote": "Edit Note",
+            "moveToGroup": "Move to Group",
+            "openLink": "Open Link",
+            "paste": "Paste",
+            "pasteAsPath": "Paste as Path",
+            "pasteAsPlainText": "Paste as Plain Text",
+            "revealInExplorer": "Reveal in Explorer",
+            "revealInFinder": "Reveal in Finder",
+            "saveImage": "Save Image",
+            "sendEmail": "Send Email",
+            "toggleFavorite": "Favorite / Unfavorite",
+            "togglePinned": "Pin / Unpin"
+          },
+          "title": "Menu Action Order & Visibility"
+        },
+        "ai": {
+          "controlLabel": "Manage",
+          "description": "Configure how AI actions appear in the context menu.",
+          "title": "AI Actions"
+        }
+      },
       "organizing": {
         "autoFavorite": {
           "description": "When saving a non-empty note, automatically add that record to favorites.",
@@ -637,6 +704,9 @@
     "tabs": {
       "about": {
         "title": "About"
+      },
+      "ai": {
+        "title": "AI"
       },
       "data": {
         "title": "Data"

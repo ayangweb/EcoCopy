@@ -32,7 +32,7 @@ pub use sound::play_copy_sound;
 pub use source::detect_frontmost;
 pub use storage::ImageStore;
 pub use watcher::{init, materialize_source, persist_and_notify, WatcherPause};
-pub use write::write_to_clipboard;
+pub use write::{write_ai_text_to_clipboard, write_to_clipboard};
 
 #[cfg(test)]
 pub(crate) mod test_lock {

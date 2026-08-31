@@ -6,6 +6,9 @@ pub enum AppError {
     #[error("{0}")]
     Clipboard(String),
 
+    #[error("{0}")]
+    Ai(String),
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -14,6 +17,7 @@ impl AppError {
     fn kind(&self) -> &'static str {
         match self {
             AppError::Clipboard(_) => "Clipboard",
+            AppError::Ai(_) => "Ai",
             AppError::Other(_) => "Other",
         }
     }

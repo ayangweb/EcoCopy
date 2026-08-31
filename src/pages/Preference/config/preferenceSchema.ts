@@ -1,6 +1,7 @@
 import { CAPTURE_KIND_OPTIONS } from "@/constants/captureKinds";
 import { ITEM_ACTION_OPTIONS } from "@/constants/itemActions";
 import { LANGUAGE_OPTIONS } from "@/constants/languages";
+import { MENU_ACTION_OPTIONS } from "@/constants/menuActions";
 import {
   WINDOW_OPEN_CATEGORY_OPTIONS,
   WINDOW_OPEN_RANGE_OPTIONS,
@@ -343,6 +344,7 @@ export const preferenceTabs: PreferenceTab[] = [
         settings: [
           {
             control: {
+              aiGroup: { path: ["ai", "quickActions"] },
               options: ITEM_ACTION_OPTIONS,
               orderPath: ["clipboard", "content", "itemActionOrder"],
               type: "sortableCheckboxTree",
@@ -414,6 +416,47 @@ export const preferenceTabs: PreferenceTab[] = [
             value: (settings) => {
               return settings.clipboard.content
                 .deleteFavoriteItemsOnlyInFavoriteGroup;
+            },
+          },
+        ],
+      },
+      {
+        id: "menu",
+        settings: [
+          {
+            control: {
+              options: MENU_ACTION_OPTIONS,
+              orderPath: ["menu", "order"],
+              type: "sortableCheckboxTree",
+            },
+            id: "menu.actions",
+            keywords: ["menu", "right-click", "context", "order", "visibility"],
+            path: ["menu", "visibleActions"],
+            value: (settings) => {
+              return {
+                order: settings.menu.order,
+                selected: settings.menu.visibleActions,
+              };
+            },
+          },
+          {
+            control: {
+              aiGroup: {
+                orderPath: ["menu", "aiOrder"],
+                path: ["menu", "aiVisible"],
+              },
+              options: [],
+              orderPath: ["menu", "aiOrder"],
+              type: "sortableCheckboxTree",
+            },
+            id: "menu.ai",
+            keywords: ["menu", "ai", "process"],
+            path: ["menu", "aiVisible"],
+            value: (settings) => {
+              return {
+                order: settings.menu.aiOrder,
+                selected: settings.menu.aiVisible,
+              };
             },
           },
         ],
@@ -867,6 +910,55 @@ export const preferenceTabs: PreferenceTab[] = [
             value: (settings) => {
               return settings.update.includeNightly;
             },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    icon: "i-lucide:sparkles",
+    id: "ai",
+    sections: [
+      {
+        id: "general",
+        settings: [
+          {
+            control: { type: "switch" },
+            id: "ai.enabled",
+            keywords: ["ai", "enable", "open"],
+            path: ["ai", "enabled"],
+            value: (settings) => {
+              return settings.ai.enabled;
+            },
+          },
+          {
+            control: { type: "switch" },
+            id: "ai.autoWriteback",
+            keywords: ["ai", "writeback", "clipboard", "auto"],
+            path: ["ai", "autoWriteback"],
+            value: (settings) => {
+              return settings.ai.autoWriteback;
+            },
+          },
+        ],
+      },
+      {
+        id: "models",
+        settings: [
+          {
+            control: { type: "action" },
+            id: "ai.models",
+            keywords: ["ai", "model", "provider", "profile", "endpoint"],
+          },
+        ],
+      },
+      {
+        id: "templates",
+        settings: [
+          {
+            control: { type: "action" },
+            id: "ai.customTemplates",
+            keywords: ["ai", "template", "custom", "manage"],
           },
         ],
       },

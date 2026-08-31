@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::db::models::ClipboardItemSort;
+use crate::menu::clipboard_item::ClipboardMenuAction;
 
 pub const WINDOW_OPEN_SELECTION_PRESERVE: &str = "preserve";
 pub const WINDOW_OPEN_SELECTION_ALL: &str = "all";
@@ -17,8 +18,10 @@ pub struct Settings {
     pub appearance: Appearance,
     pub shortcuts: Shortcuts,
     pub clipboard: Clipboard,
+    pub menu: Menu,
     pub onboarding: Onboarding,
     pub update: Update,
+    pub ai: Ai,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -643,4 +646,434 @@ pub enum UpdateFrequency {
     Daily,
     Weekly,
     Monthly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AiModelProfile {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    #[serde(default = "default_true")]
+    pub streaming: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AiActionTemplate {
+    pub id: String,
+    pub name: String,
+    pub input_kind: crate::ai::AiInputKind,
+    pub prompt: String,
+    pub model_profile_id: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Ai {
+    pub enabled: bool,
+    pub auto_writeback: bool,
+    pub models: Vec<AiModelProfile>,
+    pub default_model_id: Option<String>,
+    pub quick_actions: Vec<String>,
+    pub custom_templates: Vec<AiActionTemplate>,
+    pub disabled_actions: Vec<String>,
+}
+
+impl Default for Ai {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            auto_writeback: true,
+            models: Vec::new(),
+            default_model_id: None,
+            quick_actions: Vec::new(),
+            custom_templates: default_ai_templates(),
+            disabled_actions: Vec::new(),
+        }
+    }
+}
+
+/// 4 个默认 AI 动作模板（中文名称，用户可在管理弹窗中编辑、删除或新增）：
+/// 文本「翻译 / 总结」+ 图片「图片 OCR / 描述图片」。提示词只描述动作，
+/// 文本或图片输入由 `ai::prompt` 按固定边界自动附加。
+fn default_ai_templates() -> Vec<AiActionTemplate> {
+    use crate::ai::AiInputKind;
+
+    vec![
+        AiActionTemplate {
+            id: "translate".into(),
+            name: "翻译".into(),
+            input_kind: AiInputKind::Text,
+            prompt: "你是一位专业的翻译引擎。将输入内容翻译为中文。只输出译文本身，不要任何解释、引号或额外内容。若内容已经是中文，原样输出。保留原文的段落与换行结构；代码、命令、URL、邮箱和专有名词保持原样。若输入中残留 HTML 等格式标记，忽略标记只翻译正文文字，输出干净的纯文本。".into(),
+            model_profile_id: None,
+        },
+        AiActionTemplate {
+            id: "summarize".into(),
+            name: "总结".into(),
+            input_kind: AiInputKind::Text,
+            prompt: "你把以下文本提炼成结构化要点总结：先用一句话概括主旨，再分条列出关键要点，语言与原文一致。只输出总结本身，不要任何解释、前言或收尾客套。保留原文中的关键数字、专有名词与结论；若原文为分点内容，合并同类项后仍以条目呈现。".into(),
+            model_profile_id: None,
+        },
+        AiActionTemplate {
+            id: "ocr".into(),
+            name: "图片 OCR".into(),
+            input_kind: AiInputKind::Image,
+            prompt: "你是 OCR 引擎。识别图片中的所有文字，按原始版面顺序输出，保留原始换行与段落结构。只输出识别到的文字本身，禁止臆造、翻译、解释或添加注释；模糊或无法确认的字以［？］占位。".into(),
+            model_profile_id: None,
+        },
+        AiActionTemplate {
+            id: "describeImage".into(),
+            name: "描述图片".into(),
+            input_kind: AiInputKind::Image,
+            prompt: "你负责看图并描述：先一句话概括图片主体与场景，再按需补充关键细节（文字内容、数据、界面元素等）。若图中有文字请一并完整转写。语言跟随图片内容的主要语言，只输出描述本身，不要任何解释或开场白。".into(),
+            model_profile_id: None,
+        },
+    ]
+}
+
+/// 历史出厂模板指纹（id, 名称, 输入类型, 提示词；绑定档案出厂恒为 None）。
+/// 模板是普通用户数据：只有集合与内容**全字段**等于某代出厂预置时才视为
+/// 「用户未修改」，避免迁移静默重置只改过提示词/名称的用户编辑。
+type PresetFingerprint = [(
+    &'static str,
+    &'static str,
+    crate::ai::AiInputKind,
+    &'static str,
+)];
+
+/// 旧版出厂默认（4 个纯文本、短提示词）。
+const LEGACY_PRESET_TEMPLATES: &PresetFingerprint = &[
+    (
+        "translate",
+        "翻译",
+        crate::ai::AiInputKind::Text,
+        "请将以下内容翻译为中文",
+    ),
+    (
+        "polish",
+        "润色",
+        crate::ai::AiInputKind::Text,
+        "请润色以下文本，使其更流畅、专业",
+    ),
+    (
+        "summarize",
+        "总结",
+        crate::ai::AiInputKind::Text,
+        "请总结以下内容的核心要点",
+    ),
+    (
+        "explain",
+        "解释",
+        crate::ai::AiInputKind::Text,
+        "请用通俗易懂的语言解释以下内容",
+    ),
+];
+
+/// 中间开发版本曾把默认集临时扩到 8 个；同样按指纹识别未修改的集合后收敛。
+const EIGHT_PRESET_TEMPLATES: &PresetFingerprint = &[
+    (
+        "translate",
+        "翻译",
+        crate::ai::AiInputKind::Text,
+        "你是一位专业的翻译引擎。将输入内容翻译为中文。只输出译文本身，不要任何解释、引号或额外内容。若内容已经是中文，原样输出。保留原文的段落与换行结构；代码、命令、URL、邮箱和专有名词保持原样。若输入中残留 HTML 等格式标记，忽略标记只翻译正文文字，输出干净的纯文本。",
+    ),
+    (
+        "polish",
+        "润色",
+        crate::ai::AiInputKind::Text,
+        "你负责润色/改写以下文本：保留原意与原语言，去除 AI 味与口水，使表达更自然精练。保留原文的段落结构，只输出结果本身，不要任何解释。",
+    ),
+    (
+        "summarize",
+        "总结",
+        crate::ai::AiInputKind::Text,
+        "你把以下文本提炼成结构化要点总结，语言与原文一致，分条列出。只输出总结本身，不要任何解释或前言。",
+    ),
+    (
+        "explain",
+        "解释",
+        crate::ai::AiInputKind::Text,
+        "你作为通用答疑助手，用通俗语言解释用户提出的内容或问题。只输出解释本身，不要开场白和收尾客套。",
+    ),
+    (
+        "mouthpiece",
+        "代回消息",
+        crate::ai::AiInputKind::Text,
+        "你帮用户回消息：把下面的语境与内容变成得体的私发回复，语气自然，语言与消息一致，不要引号，只输出回复内容。",
+    ),
+    (
+        "ocr",
+        "图片 OCR",
+        crate::ai::AiInputKind::Image,
+        "你是 OCR 引擎。识别图片中的所有文字，保留原始换行与段落。只输出识别到的文字本身，禁止臆造、解释或注释。",
+    ),
+    (
+        "describeImage",
+        "描述图片",
+        crate::ai::AiInputKind::Image,
+        "你看图并描述内容；若图中有文字请一并转写。只输出描述本身，不要任何解释。",
+    ),
+    (
+        "translateImage",
+        "翻译图片",
+        crate::ai::AiInputKind::Image,
+        "你先识别图片中的文字，再翻译为中文。输出原文对照与译文两部分，不要额外解释。",
+    ),
+];
+
+/// 判断模板集合是否恰好等于某代出厂预置（数量与全字段一致，顺序无关）。
+fn matches_preset(custom: &[AiActionTemplate], preset: &PresetFingerprint) -> bool {
+    custom.len() == preset.len()
+        && preset.iter().all(|(id, name, kind, prompt)| {
+            custom.iter().any(|tpl| {
+                tpl.id == *id
+                    && tpl.name == *name
+                    && tpl.input_kind == *kind
+                    && tpl.prompt == *prompt
+                    && tpl.model_profile_id.is_none()
+            })
+        })
+}
+
+/// 迁移：出厂预置集合变化时原地收敛到当前默认（老 4 文本集 / 中间 8 集合 → 新 4 集）。
+/// 用户增删或改过任何模板内容（指纹不等于任何预置）时不动，避免覆盖用户配置。
+/// 同步清理派生集合（菜单勾选/排序、hover 快捷、禁用列表）里滞留的已移除预置 id，
+/// 避免「模板删了、联动配置还在」的脏数据写进 settings.json。
+pub fn migrate_legacy_default_templates(settings: &mut Settings) {
+    let is_preset_set = matches_preset(&settings.ai.custom_templates, LEGACY_PRESET_TEMPLATES)
+        || matches_preset(&settings.ai.custom_templates, EIGHT_PRESET_TEMPLATES);
+
+    if !is_preset_set {
+        return;
+    }
+
+    log::info!("migrating preset AI templates to current default set (4)");
+    settings.ai.custom_templates = default_ai_templates();
+
+    let valid_ids: std::collections::HashSet<String> = settings
+        .ai
+        .custom_templates
+        .iter()
+        .map(|tpl| tpl.id.clone())
+        .collect();
+
+    settings.menu.ai_visible.retain(|id| valid_ids.contains(id));
+    settings.menu.ai_order.retain(|id| valid_ids.contains(id));
+    settings
+        .ai
+        .quick_actions
+        .retain(|id| valid_ids.contains(id));
+    settings
+        .ai
+        .disabled_actions
+        .retain(|id| valid_ids.contains(id));
+}
+
+impl Ai {
+    pub fn default_model(&self) -> Option<&AiModelProfile> {
+        self.default_model_id
+            .as_deref()
+            .and_then(|id| self.models.iter().find(|p| p.id == id))
+            .or_else(|| self.models.first())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Menu {
+    pub visible_actions: Vec<ClipboardMenuAction>,
+    pub order: Vec<ClipboardMenuAction>,
+    pub ai_visible: Vec<String>,
+    pub ai_order: Vec<String>,
+}
+
+impl Default for Menu {
+    fn default() -> Self {
+        Self {
+            visible_actions: vec![
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::PasteAsPlainText,
+                ClipboardMenuAction::PasteAsPath,
+                ClipboardMenuAction::Copy,
+                ClipboardMenuAction::SaveImage,
+                ClipboardMenuAction::OpenLink,
+                ClipboardMenuAction::SendEmail,
+                ClipboardMenuAction::RevealInFinder,
+                ClipboardMenuAction::RevealInExplorer,
+                ClipboardMenuAction::ToggleFavorite,
+                ClipboardMenuAction::TogglePinned,
+                ClipboardMenuAction::MoveToGroup,
+                ClipboardMenuAction::EditNote,
+                ClipboardMenuAction::Delete,
+            ],
+            order: vec![
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::PasteAsPlainText,
+                ClipboardMenuAction::PasteAsPath,
+                ClipboardMenuAction::Copy,
+                ClipboardMenuAction::SaveImage,
+                ClipboardMenuAction::OpenLink,
+                ClipboardMenuAction::SendEmail,
+                ClipboardMenuAction::RevealInFinder,
+                ClipboardMenuAction::RevealInExplorer,
+                ClipboardMenuAction::ToggleFavorite,
+                ClipboardMenuAction::TogglePinned,
+                ClipboardMenuAction::MoveToGroup,
+                ClipboardMenuAction::EditNote,
+                ClipboardMenuAction::Delete,
+            ],
+            ai_visible: Vec::new(),
+            ai_order: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod menu_tests {
+    use super::*;
+
+    /// 按指纹表构造历史出厂模板（含真实历史提示词）。
+    fn preset_template(
+        (id, name, kind, prompt): &(&str, &str, crate::ai::AiInputKind, &str),
+    ) -> AiActionTemplate {
+        AiActionTemplate {
+            id: (*id).into(),
+            name: (*name).into(),
+            input_kind: *kind,
+            prompt: (*prompt).into(),
+            model_profile_id: None,
+        }
+    }
+
+    #[test]
+    fn migration_upgrades_untouched_legacy_template_set() {
+        let mut settings = Settings::default();
+        // 模拟老版本落盘的默认 4 模板，并给派生集合塞入将被移除的预置 id。
+        settings.ai.custom_templates = LEGACY_PRESET_TEMPLATES
+            .iter()
+            .map(preset_template)
+            .collect();
+        settings.menu.ai_visible = vec!["polish".into(), "ocr".into()];
+        settings.menu.ai_order = vec!["translateImage".into()];
+        settings.ai.quick_actions = vec!["mouthpiece".into()];
+        settings.ai.disabled_actions = vec!["explain".into()];
+
+        migrate_legacy_default_templates(&mut settings);
+
+        // 模板收敛到新默认 4 集，派生集合里的陈旧预置 id 一并清理。
+        assert_eq!(settings.ai.custom_templates.len(), 4);
+        let ids: Vec<&str> = settings
+            .ai
+            .custom_templates
+            .iter()
+            .map(|tpl| tpl.id.as_str())
+            .collect();
+        assert_eq!(ids, ["translate", "summarize", "ocr", "describeImage"]);
+        // polish 已移除被清掉；ocr 仍在新默认集中，正确保留。
+        assert_eq!(settings.menu.ai_visible, ["ocr"]);
+        assert!(settings.menu.ai_order.is_empty());
+        assert!(settings.ai.quick_actions.is_empty());
+        assert!(settings.ai.disabled_actions.is_empty());
+    }
+
+    #[test]
+    fn migration_converges_untouched_eight_template_set() {
+        let mut settings = Settings::default();
+        // 中间版本曾把默认集扩到 8 个；用户未改过时收敛回当前 4 默认。
+        settings.ai.custom_templates = EIGHT_PRESET_TEMPLATES.iter().map(preset_template).collect();
+        assert_eq!(settings.ai.custom_templates.len(), 8);
+
+        migrate_legacy_default_templates(&mut settings);
+
+        assert_eq!(settings.ai.custom_templates.len(), 4);
+    }
+
+    #[test]
+    fn migration_skips_user_edited_legacy_template() {
+        let mut settings = Settings::default();
+        // id 集合仍是老出厂 4 个，但用户改过其中一条提示词 → 视为已编辑，不迁移。
+        let mut templates: Vec<AiActionTemplate> = LEGACY_PRESET_TEMPLATES
+            .iter()
+            .map(preset_template)
+            .collect();
+        templates[0].prompt = "我自己调过的翻译提示词".into();
+        settings.ai.custom_templates = templates;
+        let before = settings.ai.custom_templates.clone();
+
+        migrate_legacy_default_templates(&mut settings);
+
+        assert_eq!(settings.ai.custom_templates, before);
+    }
+
+    #[test]
+    fn migration_skips_user_modified_template_set() {
+        let mut settings = Settings::default();
+        settings.ai.custom_templates.push(AiActionTemplate {
+            id: "custom:1".into(),
+            name: "我的模板".into(),
+            input_kind: crate::ai::AiInputKind::Text,
+            prompt: "自定义".into(),
+            model_profile_id: None,
+        });
+        let before = settings.ai.custom_templates.clone();
+
+        migrate_legacy_default_templates(&mut settings);
+
+        // 用户改过集合（4 默认 + 1 自定义）→ 模板与派生集合均不动。
+        assert_eq!(settings.ai.custom_templates, before);
+    }
+
+    #[test]
+    fn menu_default_contains_all_fourteen_actions() {
+        let menu = Menu::default();
+
+        assert_eq!(menu.visible_actions.len(), 14);
+        assert_eq!(menu.order.len(), 14);
+    }
+
+    #[test]
+    fn menu_default_order_matches_action_groups() {
+        let menu = Menu::default();
+        let expected = vec![
+            ClipboardMenuAction::Paste,
+            ClipboardMenuAction::PasteAsPlainText,
+            ClipboardMenuAction::PasteAsPath,
+            ClipboardMenuAction::Copy,
+            ClipboardMenuAction::SaveImage,
+            ClipboardMenuAction::OpenLink,
+            ClipboardMenuAction::SendEmail,
+            ClipboardMenuAction::RevealInFinder,
+            ClipboardMenuAction::RevealInExplorer,
+            ClipboardMenuAction::ToggleFavorite,
+            ClipboardMenuAction::TogglePinned,
+            ClipboardMenuAction::MoveToGroup,
+            ClipboardMenuAction::EditNote,
+            ClipboardMenuAction::Delete,
+        ];
+
+        assert_eq!(menu.order, expected);
+    }
+
+    #[test]
+    fn menu_deserialize_missing_field_uses_default() {
+        let json = r#"{}"#;
+        let menu: Menu = serde_json::from_str(json).unwrap();
+
+        assert_eq!(menu, Menu::default());
+    }
+
+    #[test]
+    fn settings_deserialize_missing_menu_uses_default() {
+        let json = r#"{"general":{},"appearance":{},"shortcuts":{},"clipboard":{},"onboarding":{},"update":{}}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+
+        assert_eq!(settings.menu, Menu::default());
+    }
 }

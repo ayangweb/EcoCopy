@@ -16,6 +16,10 @@ export const PREFERENCE_TAB_META: Record<PreferenceTabId, PreferenceTabMeta> = {
     activeClass: "bg-ant-fill-secondary text-ant-text",
     icon: "i-lucide:info",
   },
+  ai: {
+    activeClass: "bg-ant-fill-secondary text-ant-text",
+    icon: "i-lucide:sparkles",
+  },
   data: {
     activeClass: "bg-ant-fill-secondary text-ant-text",
     icon: "i-lucide:database",

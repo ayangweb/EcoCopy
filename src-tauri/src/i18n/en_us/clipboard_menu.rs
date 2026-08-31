@@ -20,5 +20,6 @@ pub fn label(key: Key) -> &'static str {
         Key::AddNote => "Add Note",
         Key::EditNote => "Edit Note",
         Key::Delete => "Delete",
+        Key::AiProcess => "AI Process",
     }
 }

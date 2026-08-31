@@ -90,11 +90,24 @@ const ContextMenu: FC = () => {
     void hideContextMenus();
   });
 
-  const handlePick = async (action: ClipboardAction) => {
+  const handlePick = async (action: ClipboardAction, aiActionId?: string) => {
     if (!payload) return;
 
     await emitTo(WINDOW_LABEL.CLIPBOARD, TAURI_EVENT.CLIPBOARD_MENU_ACTION, {
       action,
+      itemId: payload.itemId,
+      ...(action === "aiProcess" && aiActionId ? { aiActionId } : {}),
+    });
+
+    await hideContextMenus();
+  };
+
+  const handlePickAi = async (aiActionId: string) => {
+    if (!payload) return;
+
+    await emitTo(WINDOW_LABEL.CLIPBOARD, TAURI_EVENT.CLIPBOARD_MENU_ACTION, {
+      action: "aiProcess",
+      aiActionId,
       itemId: payload.itemId,
     });
 
@@ -125,15 +138,17 @@ const ContextMenu: FC = () => {
                 <ContextMenuItem
                   accelerator={item.accelerator}
                   action={item.action}
+                  aiActionId={item.aiActionId}
                   groups={item.groups ?? []}
                   isActive={activeSubmenuAction === item.action}
                   isDanger={item.action === "delete"}
                   itemId={payload.itemId}
-                  key={item.action}
+                  key={item.aiActionId ?? item.action}
                   label={item.label}
                   onCloseSubmenu={closeSubmenu}
                   onOpenSubmenu={openSubmenu}
                   onPick={handlePick}
+                  onPickAi={handlePickAi}
                 />
               );
             })}
@@ -147,6 +162,7 @@ const ContextMenu: FC = () => {
 interface ContextMenuItemProps {
   accelerator: string | null;
   action: ClipboardAction;
+  aiActionId?: string;
   groups: ContextSubmenuGroupInput[];
   isActive: boolean;
   isDanger: boolean;
@@ -154,7 +170,8 @@ interface ContextMenuItemProps {
   label: string;
   onCloseSubmenu: () => void;
   onOpenSubmenu: (input: ShowContextSubmenuInput) => void;
-  onPick: (action: ClipboardAction) => void;
+  onPick: (action: ClipboardAction, aiActionId?: string) => void;
+  onPickAi: (aiActionId: string) => void;
 }
 
 /**
@@ -164,6 +181,7 @@ const ContextMenuItem: FC<ContextMenuItemProps> = (props) => {
   const {
     accelerator,
     action,
+    aiActionId,
     groups,
     isActive,
     isDanger,
@@ -172,11 +190,18 @@ const ContextMenuItem: FC<ContextMenuItemProps> = (props) => {
     onCloseSubmenu,
     onOpenSubmenu,
     onPick,
+    onPickAi,
   } = props;
   const hasGroups = groups.length > 0;
 
   const handleClick = () => {
     if (hasGroups) return;
+
+    if (action === "aiProcess" && aiActionId) {
+      onPickAi(aiActionId);
+
+      return;
+    }
 
     onPick(action);
   };
@@ -273,11 +298,21 @@ export const ContextSubmenu: FC = () => {
     const groupId = event.currentTarget.dataset.groupId;
     if (!groupId) return;
 
-    await emitTo(WINDOW_LABEL.CLIPBOARD, TAURI_EVENT.CLIPBOARD_MENU_ACTION, {
-      action: payload.action,
-      groupId,
-      itemId: payload.itemId,
-    });
+    if (payload.action === "aiProcess") {
+      const aiActionId = groupId.replace("cim::ai::", "");
+
+      await emitTo(WINDOW_LABEL.CLIPBOARD, TAURI_EVENT.CLIPBOARD_MENU_ACTION, {
+        action: payload.action,
+        aiActionId,
+        itemId: payload.itemId,
+      });
+    } else {
+      await emitTo(WINDOW_LABEL.CLIPBOARD, TAURI_EVENT.CLIPBOARD_MENU_ACTION, {
+        action: payload.action,
+        groupId,
+        itemId: payload.itemId,
+      });
+    }
 
     await hideContextMenus();
   };

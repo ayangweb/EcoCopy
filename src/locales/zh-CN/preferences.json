@@ -80,6 +80,9 @@
       "actions": {
         "title": "快捷动作"
       },
+      "ai": {
+        "title": "AI"
+      },
       "appearance": {
         "title": "外观与语言"
       },
@@ -99,6 +102,9 @@
       "diagnostics": {
         "title": "诊断恢复"
       },
+      "general": {
+        "title": "通用"
+      },
       "globalShortcuts": {
         "title": "全局快捷键"
       },
@@ -110,6 +116,12 @@
       },
       "localData": {
         "title": "存储位置"
+      },
+      "menu": {
+        "title": "右键菜单"
+      },
+      "models": {
+        "title": "模型"
       },
       "organizing": {
         "title": "收藏与备注"
@@ -131,6 +143,9 @@
       },
       "source": {
         "title": "应用过滤"
+      },
+      "templates": {
+        "title": "模板"
       },
       "updates": {
         "title": "更新"
@@ -185,6 +200,30 @@
           "description": "选择鼠标悬停在记录上时显示的操作按钮。",
           "title": "显示的快捷动作"
         }
+      },
+      "ai": {
+        "autoWriteback": {
+          "description": "自动将 AI 处理结果写回剪贴板。",
+          "title": "自动写回"
+        },
+        "customTemplates": {
+          "controlLabel": "管理",
+          "description": "管理自定义 AI 动作模板。",
+          "title": "动作模板"
+        },
+        "enabled": {
+          "description": "启用 AI 处理功能。",
+          "title": "启用 AI"
+        },
+        "models": {
+          "controlLabel": "管理",
+          "description": "配置 AI 模型档案。",
+          "title": "模型管理"
+        }
+      },
+      "aiGroup": {
+        "disabledHint": "启用 AI 后可配置",
+        "title": "AI 动作"
       },
       "appearance": {
         "fileMaxCount": {
@@ -416,6 +455,34 @@
           "title": "日志目录"
         }
       },
+      "menu": {
+        "actions": {
+          "controlLabel": "管理",
+          "description": "调整右键菜单中各项的显示顺序与可见性。",
+          "options": {
+            "copy": "复制",
+            "delete": "删除",
+            "editNote": "编辑备注",
+            "moveToGroup": "移动到分组",
+            "openLink": "打开链接",
+            "paste": "粘贴",
+            "pasteAsPath": "粘贴为路径",
+            "pasteAsPlainText": "粘贴为纯文本",
+            "revealInExplorer": "在资源管理器中显示",
+            "revealInFinder": "在访达中显示",
+            "saveImage": "保存图片",
+            "sendEmail": "发送邮件",
+            "toggleFavorite": "收藏 / 取消收藏",
+            "togglePinned": "置顶 / 取消置顶"
+          },
+          "title": "菜单动作排序与可见性"
+        },
+        "ai": {
+          "controlLabel": "管理",
+          "description": "配置 AI 处理动作在右键菜单中的显示方式。",
+          "title": "AI 动作"
+        }
+      },
       "organizing": {
         "autoFavorite": {
           "description": "保存非空备注时，自动把该记录加入收藏。",
@@ -637,6 +704,9 @@
     "tabs": {
       "about": {
         "title": "关于"
+      },
+      "ai": {
+        "title": "AI"
       },
       "data": {
         "title": "数据"

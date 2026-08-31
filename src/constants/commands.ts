@@ -6,7 +6,9 @@
 export const TAURI_COMMAND = {
   ACQUIRE_WINDOW_KEEPALIVE: "acquire_window_keepalive",
   ADD_CLIPBOARD_APP_FROM_PATH: "add_clipboard_app_from_path",
+  CANCEL_AI_REQUEST: "cancel_ai_request",
   CHANGE_STORAGE_LOCATION: "change_storage_location",
+  CHECK_AI_CONNECTIVITY: "check_ai_connectivity",
   CHECK_FOR_UPDATES: "check_for_updates",
   CLEAN_RESOURCE_CACHE: "clean_resource_cache",
   CLEAR_CLIPBOARD_ITEMS: "clear_clipboard_items",
@@ -19,6 +21,7 @@ export const TAURI_COMMAND = {
   DOWNLOAD_UPDATE: "download_update",
   EXPORT_HISTORY_BACKUP: "export_history_backup",
   FINISH_ONBOARDING: "finish_onboarding",
+  GET_AI_ACTIONS: "get_ai_actions",
   GET_AUTOSTART: "get_autostart",
   GET_CLIPBOARD_IMAGE_PATH: "get_clipboard_image_path",
   GET_CLIPBOARD_ITEM: "get_clipboard_item",
@@ -59,6 +62,7 @@ export const TAURI_COMMAND = {
   RESTART_AS_ADMIN: "restart_as_admin",
   RESUME_GLOBAL_SHORTCUTS: "resume_global_shortcuts",
   REVEAL_CLIPBOARD_ITEM: "reveal_clipboard_item",
+  RUN_AI_ACTION: "run_ai_action",
   SAVE_CLIPBOARD_IMAGE_TO_FILE: "save_clipboard_image_to_file",
   SET_AUTOSTART: "set_autostart",
   SET_CLIPBOARD_WINDOW_AUTO_HIDE_SUSPENDED:
@@ -84,6 +88,7 @@ export const TAURI_COMMAND = {
   UPDATE_CLIPBOARD_ITEM_GROUP: "update_clipboard_item_group",
   UPDATE_CLIPBOARD_ITEM_NOTE: "update_clipboard_item_note",
   UPDATE_SETTINGS: "update_settings",
+  WRITE_AI_RESULT_TO_CLIPBOARD: "write_ai_result_to_clipboard",
   WRITE_TO_CLIPBOARD: "write_to_clipboard",
 } as const;
 
