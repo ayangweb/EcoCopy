@@ -25,8 +25,8 @@ use crate::settings::Language;
 use crate::window::lifecycle;
 
 use super::clipboard_item::{
-    visible_ordered_actions, ClipboardItemMenuRequest, ClipboardMenuAction, ClipboardMenuGroup,
-    ACTION_GROUPS,
+    visible_ordered_actions, AiMenuItem, ClipboardItemMenuRequest, ClipboardMenuAction,
+    ClipboardMenuGroup, ACTION_GROUPS, AI_ACTION_PREFIX,
 };
 
 pub const CONTEXT_MENU_WINDOW_LABEL: &str = "context-menu";
@@ -122,9 +122,13 @@ fn build_menu_window(
 pub(super) fn show_for_clipboard_item(
     app: &AppHandle,
     request: &ClipboardItemMenuRequest,
-    menu: &crate::settings::Menu,
 ) -> Result<()> {
-    let lang = crate::i18n::current_language(app);
+    let lang = request.language;
+    let menu_settings = &request.menu;
+
+    let (promoted_ai, remaining_ai) =
+        super::action::split_promoted_ai_actions(menu_settings, &request.ai_actions);
+
     let ctx = GroupsContext {
         clipboard_groups: &request.groups,
         current_group_id: request.current_group_id.as_deref(),
@@ -132,7 +136,9 @@ pub(super) fn show_for_clipboard_item(
         is_favorite: request.is_favorite,
         is_pinned: request.is_pinned,
         has_note: request.has_note,
-        menu,
+        menu: menu_settings,
+        promoted_ai: &promoted_ai,
+        remaining_ai: &remaining_ai,
     };
     let groups = build_groups(&request.available_actions, &ctx);
     if groups.is_empty() {
@@ -232,6 +238,8 @@ struct GroupsContext<'a> {
     is_pinned: bool,
     has_note: bool,
     menu: &'a crate::settings::Menu,
+    promoted_ai: &'a [AiMenuItem],
+    remaining_ai: &'a [AiMenuItem],
 }
 
 fn build_groups(
@@ -267,11 +275,47 @@ fn build_groups(
                 .into(),
             accelerator: action.accelerator().map(String::from),
             groups: build_group_items(action, ctx.clipboard_groups, ctx.current_group_id),
+            ai_action_id: None,
         });
     }
 
     if !current_group.is_empty() {
         groups.push(current_group);
+    }
+
+    if !ctx.promoted_ai.is_empty() {
+        groups.push(
+            ctx.promoted_ai
+                .iter()
+                .map(|ai| ContextMenuItemPayload {
+                    action: ClipboardMenuAction::AiProcess,
+                    label: ai.label.clone(),
+                    accelerator: None,
+                    groups: Vec::new(),
+                    ai_action_id: Some(ai.id.clone()),
+                })
+                .collect(),
+        );
+    }
+
+    if !ctx.remaining_ai.is_empty() {
+        groups.push(vec![ContextMenuItemPayload {
+            action: ClipboardMenuAction::AiProcess,
+            label: ClipboardMenuAction::AiProcess
+                .label(ctx.lang, ctx.is_favorite, ctx.is_pinned, ctx.has_note)
+                .into(),
+            accelerator: None,
+            groups: ctx
+                .remaining_ai
+                .iter()
+                .map(|a| ContextSubmenuGroupInput {
+                    checked: false,
+                    id: format!("{}{}", AI_ACTION_PREFIX, a.id),
+                    label: a.label.clone(),
+                })
+                .collect(),
+            ai_action_id: None,
+        }]);
     }
 
     groups
@@ -559,6 +603,7 @@ mod tests {
                 label: "Paste".to_owned(),
                 accelerator: None,
                 groups: Vec::new(),
+                ai_action_id: None,
             }],
             vec![ContextMenuItemPayload {
                 action: ClipboardMenuAction::MoveToGroup,
@@ -569,6 +614,7 @@ mod tests {
                     id: "g1".to_owned(),
                     label: "Group".to_owned(),
                 }],
+                ai_action_id: None,
             }],
         ];
 

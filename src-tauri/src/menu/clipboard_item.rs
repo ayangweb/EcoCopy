@@ -11,12 +11,14 @@
 //! 业务侧（toast / 二次确认 modal / 列表本地镜像同步）仍在前端 `List.tsx`
 //! 维护，本模块只负责「弹菜单 + 点击后 emit `clipboard://menu-action` 给前端」。
 
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::core::Result;
 use crate::db::DatabaseState;
-use crate::settings::Language;
+use crate::settings::{Language, SettingsStore};
 
 /// 前端订阅事件：携带 `{action, itemId}`，由 `List.tsx` 派发到现有处理逻辑。
 #[cfg(target_os = "macos")]
@@ -40,6 +42,7 @@ pub enum ClipboardMenuAction {
     MoveToGroup,
     EditNote,
     Delete,
+    AiProcess,
 }
 
 impl ClipboardMenuAction {
@@ -86,6 +89,7 @@ impl ClipboardMenuAction {
                 }
             }
             Self::Delete => Key::Delete,
+            Self::AiProcess => Key::AiProcess,
         };
 
         crate::i18n::clipboard_menu::label(lang, key)
@@ -106,7 +110,70 @@ impl ClipboardMenuAction {
             Self::MoveToGroup => None,
             Self::EditNote => Some("CmdOrCtrl+M"),
             Self::Delete => Some("CmdOrCtrl+Backspace"),
+            Self::AiProcess => None,
         }
+    }
+
+    /// 动作在默认视觉分组 [`ACTION_GROUPS`] 中的序号。渲染层按相邻动作序号
+    /// 变化决定分隔线位置，使自定义顺序不破坏分组节奏。
+    #[allow(dead_code)]
+    pub(super) fn group_index(self) -> usize {
+        ACTION_GROUPS
+            .iter()
+            .position(|group| group.contains(&self))
+            .unwrap_or(usize::MAX)
+    }
+
+    /// 菜单项 id 前缀；`on_menu_event` 按前缀分流到本模块，避免与托盘菜单 id 冲突。
+    #[allow(dead_code)]
+    pub(super) fn id(self) -> &'static str {
+        match self {
+            Self::Paste => "cim::paste",
+            Self::PasteAsPlainText => "cim::pasteAsPlainText",
+            Self::PasteAsPath => "cim::pasteAsPath",
+            Self::Copy => "cim::copy",
+            Self::SaveImage => "cim::saveImage",
+            Self::OpenLink => "cim::openLink",
+            Self::SendEmail => "cim::sendEmail",
+            Self::RevealInFinder => "cim::revealInFinder",
+            Self::RevealInExplorer => "cim::revealInExplorer",
+            Self::ToggleFavorite => "cim::toggleFavorite",
+            Self::TogglePinned => "cim::togglePinned",
+            Self::MoveToGroup => "cim::moveToGroup",
+            Self::EditNote => "cim::editNote",
+            Self::Delete => "cim::delete",
+            Self::AiProcess => "cim::aiProcess",
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn from_id(id: &str) -> Option<Self> {
+        const ALL: &[ClipboardMenuAction] = &[
+            ClipboardMenuAction::Paste,
+            ClipboardMenuAction::PasteAsPlainText,
+            ClipboardMenuAction::PasteAsPath,
+            ClipboardMenuAction::Copy,
+            ClipboardMenuAction::SaveImage,
+            ClipboardMenuAction::OpenLink,
+            ClipboardMenuAction::SendEmail,
+            ClipboardMenuAction::RevealInFinder,
+            ClipboardMenuAction::RevealInExplorer,
+            ClipboardMenuAction::ToggleFavorite,
+            ClipboardMenuAction::TogglePinned,
+            ClipboardMenuAction::MoveToGroup,
+            ClipboardMenuAction::EditNote,
+            ClipboardMenuAction::Delete,
+            ClipboardMenuAction::AiProcess,
+        ];
+        if id.starts_with(MOVE_GROUP_PREFIX) {
+            return Some(ClipboardMenuAction::MoveToGroup);
+        }
+
+        if id.starts_with(AI_ACTION_PREFIX) {
+            return Some(ClipboardMenuAction::AiProcess);
+        }
+
+        ALL.iter().copied().find(|a| a.id() == id)
     }
 }
 
@@ -132,15 +199,33 @@ pub const ACTION_GROUPS: &[&[ClipboardMenuAction]] = &[
         ClipboardMenuAction::EditNote,
     ],
     &[ClipboardMenuAction::Delete],
+    &[ClipboardMenuAction::AiProcess],
 ];
 
 /// 按 `menu.order` 的顺序过滤 `menu.visible_actions`，返回实际展示的动作列表。
 pub fn visible_ordered_actions(menu: &crate::settings::Menu) -> Vec<ClipboardMenuAction> {
-    menu.order
+    let mut actions: Vec<ClipboardMenuAction> = menu
+        .order
         .iter()
         .copied()
         .filter(|a| menu.visible_actions.contains(a))
-        .collect()
+        .collect();
+
+    if !menu.ai_visible.is_empty() {
+        actions.push(ClipboardMenuAction::AiProcess);
+    }
+
+    actions
+}
+
+/// AI 子菜单项（从 `get_ai_actions` 结果映射）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AiMenuItem {
+    pub id: String,
+    pub label: String,
+    /// 动作输入类型（文本/图片），前端按条目类型过滤后传入。
+    pub input_kind: crate::ai::AiInputKind,
 }
 
 /// 右键菜单里的可选自定义分组；由命令入口从数据库实时读取。
@@ -152,8 +237,8 @@ pub(super) struct ClipboardMenuGroup {
 }
 
 /// 前端弹出右键菜单命令的入参。
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
 pub struct PopupClipboardItemMenuInput {
     pub item_id: String,
     pub available_actions: Vec<ClipboardMenuAction>,
@@ -161,9 +246,10 @@ pub struct PopupClipboardItemMenuInput {
     pub is_favorite: bool,
     pub is_pinned: bool,
     pub has_note: bool,
+    pub ai_actions: Vec<AiMenuItem>,
 }
 
-/// 构建右键菜单所需的完整上下文，包含命令参数与实时读取的分组列表。
+/// 构建右键菜单所需的完整上下文，包含命令参数与实时读取的分组、语言和菜单配置。
 #[derive(Debug, Clone)]
 pub(super) struct ClipboardItemMenuRequest {
     pub item_id: String,
@@ -173,6 +259,9 @@ pub(super) struct ClipboardItemMenuRequest {
     pub is_favorite: bool,
     pub is_pinned: bool,
     pub has_note: bool,
+    pub ai_actions: Vec<AiMenuItem>,
+    pub language: Language,
+    pub menu: crate::settings::Menu,
 }
 
 /// 菜单点击后 emit 给前端的 payload。Windows 自定义菜单窗也复用这个结构发回
@@ -184,7 +273,17 @@ pub(super) struct MenuActionPayload {
     pub action: ClipboardMenuAction,
     pub item_id: String,
     pub group_id: Option<String>,
+    pub ai_action_id: Option<String>,
 }
+
+// ============================================================================
+// 跨平台常量
+// ============================================================================
+
+/// 菜单项 id 前缀；`on_menu_event` 按前缀分流到本模块，避免与托盘菜单 id 冲突。
+#[allow(dead_code)]
+pub const MOVE_GROUP_PREFIX: &str = "cim::moveToGroup::";
+pub const AI_ACTION_PREFIX: &str = "cim::ai::";
 
 // ============================================================================
 // macOS：muda 原生菜单
@@ -207,12 +306,37 @@ mod native {
 
     use super::{
         ClipboardItemMenuRequest, ClipboardMenuAction, ClipboardMenuGroup, MenuActionPayload,
-        ACTION_GROUPS, CLIPBOARD_MENU_ACTION_EVENT,
+        ACTION_GROUPS, AI_ACTION_PREFIX, CLIPBOARD_MENU_ACTION_EVENT, MOVE_GROUP_PREFIX,
     };
 
     /// 菜单项 id 前缀；`on_menu_event` 按前缀分流到本模块，避免与托盘菜单 id 冲突。
     const MENU_PREFIX: &str = "cim::";
-    const MOVE_GROUP_PREFIX: &str = "cim::moveToGroup::";
+
+    const ALL_WITH_AI: &[ClipboardMenuAction] = &[
+        ClipboardMenuAction::Paste,
+        ClipboardMenuAction::PasteAsPlainText,
+        ClipboardMenuAction::PasteAsPath,
+        ClipboardMenuAction::Copy,
+        ClipboardMenuAction::SaveImage,
+        ClipboardMenuAction::OpenLink,
+        ClipboardMenuAction::SendEmail,
+        ClipboardMenuAction::RevealInFinder,
+        ClipboardMenuAction::RevealInExplorer,
+        ClipboardMenuAction::ToggleFavorite,
+        ClipboardMenuAction::TogglePinned,
+        ClipboardMenuAction::MoveToGroup,
+        ClipboardMenuAction::EditNote,
+        ClipboardMenuAction::Delete,
+        ClipboardMenuAction::AiProcess,
+    ];
+
+    fn move_group_id(group_id: &str) -> String {
+        format!("{MOVE_GROUP_PREFIX}{group_id}")
+    }
+
+    fn group_id_from_menu_id(menu_id: &str) -> Option<String> {
+        menu_id.strip_prefix(MOVE_GROUP_PREFIX).map(str::to_owned)
+    }
 
     impl ClipboardMenuAction {
         fn id(self) -> &'static str {
@@ -282,11 +406,7 @@ mod native {
     /// 命令本身**立刻返回**：菜单的构建与弹出都被丢到主线程上异步执行。
     /// muda 的 `MenuItem::with_id` 与 `popup_menu` 都必须主线程，且
     /// `popup_menu` 在菜单关闭前不返回（模态阻塞）。
-    pub(super) fn popup(
-        app: &AppHandle,
-        request: ClipboardItemMenuRequest,
-        menu: &crate::settings::Menu,
-    ) -> Result<()> {
+    pub(super) fn popup(app: &AppHandle, request: ClipboardItemMenuRequest) -> Result<()> {
         let state = app.try_state::<ClipboardItemMenuState>().ok_or_else(|| {
             AppError::Other(anyhow::anyhow!("ClipboardItemMenuState not managed"))
         })?;
@@ -299,7 +419,7 @@ mod native {
         let app_for_main = app.clone();
         let window_for_main = window.clone();
         let lang = crate::i18n::current_language(app);
-        let menu_for_main = menu.clone();
+        let menu_for_main = request.menu.clone();
         window
             .run_on_main_thread(move || {
                 let menu = match build_menu(&app_for_main, &request, lang, &menu_for_main) {
@@ -406,22 +526,38 @@ mod native {
             entries.push(Entry::Item(item));
         }
 
-        // AI 占位：本 commit 无 AI 命令，展示为不可点击的菜单项。
-        if !menu.ai_visible.is_empty() {
-            if !entries.is_empty() {
+        // AI 动作：勾选提升的平铺为一级菜单项，其余收进 AI 子菜单。
+        let (promoted_ai, remaining_ai) =
+            super::action::split_promoted_ai_actions(menu, &request.ai_actions);
+
+        if !promoted_ai.is_empty() {
+            if prev_group.is_some() {
+                let sep = PredefinedMenuItem::separator(app).context("build separator")?;
+                entries.push(Entry::Sep(sep));
+            }
+            prev_group = Some(usize::MAX);
+
+            for ai in &promoted_ai {
+                let item = MenuItem::with_id(
+                    app,
+                    format!("{AI_ACTION_PREFIX}{}", ai.id),
+                    ai.label.as_str(),
+                    true,
+                    None,
+                )
+                .with_context(|| format!("build promoted ai menu item {}", ai.id))?;
+                entries.push(Entry::Item(item));
+            }
+        }
+
+        if !remaining_ai.is_empty() {
+            if prev_group.is_some() {
                 let sep = PredefinedMenuItem::separator(app).context("build separator")?;
                 entries.push(Entry::Sep(sep));
             }
 
-            let ai_item = MenuItem::with_id(
-                app,
-                "cim::ai::placeholder",
-                "AI（待开发）",
-                false,
-                None::<&str>,
-            )
-            .context("build ai placeholder menu item")?;
-            entries.push(Entry::Item(ai_item));
+            let ai_submenu = build_ai_submenu(app, &remaining_ai, lang)?;
+            entries.push(Entry::Submenu(ai_submenu));
         }
 
         let refs: Vec<&dyn IsMenuItem<Wry>> = entries
@@ -475,6 +611,30 @@ mod native {
             .map_err(Into::into)
     }
 
+    fn build_ai_submenu(
+        app: &AppHandle,
+        ai_actions: &[super::AiMenuItem],
+        lang: Language,
+    ) -> Result<Submenu<Wry>> {
+        let items = ai_actions
+            .iter()
+            .map(|action| {
+                let id = format!("{}{}", super::AI_ACTION_PREFIX, action.id);
+                MenuItem::with_id(app, id, action.label.as_str(), true, None::<&str>)
+                    .with_context(|| format!("build ai menu item {}", action.id))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let refs: Vec<&dyn IsMenuItem<Wry>> = items
+            .iter()
+            .map(|item| item as &dyn IsMenuItem<Wry>)
+            .collect();
+
+        let label = ClipboardMenuAction::AiProcess.label(lang, false, false, false);
+        Submenu::with_items(app, label, true, &refs)
+            .context("build ai submenu")
+            .map_err(Into::into)
+    }
+
     pub(super) fn handle_event(app: &AppHandle, menu_id: &str) {
         if !menu_id.starts_with(MENU_PREFIX) {
             return;
@@ -499,6 +659,9 @@ mod native {
             action,
             item_id,
             group_id: group_id_from_menu_id(menu_id),
+            ai_action_id: menu_id
+                .strip_prefix(super::AI_ACTION_PREFIX)
+                .map(str::to_owned),
         };
         let Some(main) = app.get_webview_window(CLIPBOARD_WINDOW_LABEL) else {
             log::warn!("clipboard window missing on clipboard menu dispatch");
@@ -528,7 +691,6 @@ pub fn init(app: &AppHandle) {
 pub async fn popup_clipboard_item_menu(
     app: AppHandle,
     db: State<'_, DatabaseState>,
-    settings: State<'_, crate::settings::SettingsStore>,
     input: PopupClipboardItemMenuInput,
 ) -> Result<()> {
     let pool = db.pool().await;
@@ -541,6 +703,23 @@ pub async fn popup_clipboard_item_menu(
             name: group.name,
         })
         .collect::<Vec<_>>();
+
+    // 前端传入的 AI 动作列表可能滞后于模板增删（陈旧 id 会在点击时触发
+    // "未知动作"），以设置里的实时启用模板 id 为准求交集。菜单不需要复制 prompt。
+    let settings = app.state::<SettingsStore>().snapshot();
+    let enabled_ai_action_ids = settings
+        .ai
+        .custom_templates
+        .iter()
+        .filter(|template| !settings.ai.disabled_actions.contains(&template.id))
+        .map(|template| template.id.clone())
+        .collect::<HashSet<_>>();
+    let ai_actions: Vec<AiMenuItem> = input
+        .ai_actions
+        .into_iter()
+        .filter(|item| enabled_ai_action_ids.contains(&item.id))
+        .collect();
+
     let request = ClipboardItemMenuRequest {
         item_id: input.item_id,
         available_actions: input.available_actions,
@@ -549,17 +728,19 @@ pub async fn popup_clipboard_item_menu(
         is_favorite: input.is_favorite,
         is_pinned: input.is_pinned,
         has_note: input.has_note,
+        ai_actions,
+        language: settings.appearance.language,
+        menu: settings.menu,
     };
-    let menu = settings.snapshot().menu;
 
     #[cfg(target_os = "macos")]
     {
-        native::popup(&app, request, &menu)
+        native::popup(&app, request)
     }
 
     #[cfg(target_os = "windows")]
     {
-        super::context_window::show_for_clipboard_item(&app, &request, &menu)
+        super::context_window::show_for_clipboard_item(&app, &request)
     }
 }
 
@@ -603,12 +784,14 @@ mod tests {
 
     #[test]
     fn visible_ordered_actions_filters_hidden() {
-        let mut menu = crate::settings::Menu::default();
-        menu.visible_actions = vec![
-            ClipboardMenuAction::Paste,
-            ClipboardMenuAction::Copy,
-            ClipboardMenuAction::Delete,
-        ];
+        let menu = crate::settings::Menu {
+            visible_actions: vec![
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::Copy,
+                ClipboardMenuAction::Delete,
+            ],
+            ..Default::default()
+        };
 
         let actions = visible_ordered_actions(&menu);
 
@@ -624,12 +807,14 @@ mod tests {
 
     #[test]
     fn visible_ordered_actions_respects_custom_order() {
-        let mut menu = crate::settings::Menu::default();
-        menu.order = vec![
-            ClipboardMenuAction::Delete,
-            ClipboardMenuAction::Paste,
-            ClipboardMenuAction::Copy,
-        ];
+        let menu = crate::settings::Menu {
+            order: vec![
+                ClipboardMenuAction::Delete,
+                ClipboardMenuAction::Paste,
+                ClipboardMenuAction::Copy,
+            ],
+            ..Default::default()
+        };
 
         let actions = visible_ordered_actions(&menu);
 

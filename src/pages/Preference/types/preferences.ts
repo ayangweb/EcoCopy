@@ -7,7 +7,8 @@ export type PreferenceTabId =
   | "workflow"
   | "shortcuts"
   | "data"
-  | "about";
+  | "about"
+  | "ai";
 
 export interface RetentionSettingValue {
   unit: RetentionUnit;
@@ -17,6 +18,9 @@ export interface RetentionSettingValue {
 export interface SortableCheckboxTreeSettingValue {
   order: string[];
   selected: string[];
+  /** AI 动作分组（control.aiGroup 存在时）：完整顺序与勾选集。 */
+  aiOrder?: string[];
+  aiSelected?: string[];
 }
 
 export type SettingValue =
@@ -31,6 +35,12 @@ export type PreferenceStorageState = "loading" | "ready" | "error";
 
 export interface PreferenceOption {
   value: string | number;
+}
+
+/** AI 动作分组的设置写入路径；orderPath 缺省 = 勾选顺序即保存顺序。 */
+export interface PreferenceAiGroup {
+  orderPath?: readonly string[];
+  path: readonly string[];
 }
 
 export interface PreferenceShortcutTag {
@@ -52,6 +62,7 @@ export type PreferenceControl =
     }
   | {
       type: "sortableCheckboxTree";
+      aiGroup?: PreferenceAiGroup;
       options: PreferenceOption[];
       orderPath: readonly string[];
     }

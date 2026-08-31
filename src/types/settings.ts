@@ -62,7 +62,37 @@ export type MenuAction =
   | "togglePinned"
   | "moveToGroup"
   | "editNote"
-  | "delete";
+  | "delete"
+  | "aiProcess";
+
+export type AiInputKind = "text" | "image";
+
+export interface AiModelProfile {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  streaming: boolean;
+}
+
+export interface AiActionTemplate {
+  id: string;
+  name: string;
+  inputKind: AiInputKind;
+  prompt: string;
+  modelProfileId?: string;
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  autoWriteback: boolean;
+  models: AiModelProfile[];
+  defaultModelId?: string;
+  quickActions: string[];
+  customTemplates: AiActionTemplate[];
+  disabledActions: string[];
+}
 
 export type CaptureKind = "files" | "image" | "html" | "rtf" | "text";
 
@@ -234,6 +264,7 @@ export interface Settings {
   shortcuts: Shortcuts;
   clipboard: Clipboard;
   menu: MenuSettings;
+  ai: AiSettings;
   onboarding: Onboarding;
   update: Update;
 }

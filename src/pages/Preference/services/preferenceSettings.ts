@@ -59,7 +59,8 @@ function buildPatch(
 }
 
 /**
- * 按控件契约构造设置补丁；排序勾选树需要同时保存选择态与完整顺序。
+ * 按控件契约构造设置补丁；排序勾选树需要同时保存选择态与完整顺序，
+ * 配置了 aiGroup 时一并写入 AI 动作分组的勾选与顺序。
  */
 function buildSettingPatch(
   setting: PreferenceSetting,
@@ -71,10 +72,31 @@ function buildSettingPatch(
     setting.control.type === "sortableCheckboxTree" &&
     isSortableCheckboxTreeValue(value)
   ) {
-    return mergeSettingsPatch(
+    let patch = mergeSettingsPatch(
       buildPatch(setting.path, value.selected),
       buildPatch(setting.control.orderPath, value.order),
     );
+
+    const { aiGroup } = setting.control;
+    if (aiGroup && value.aiSelected) {
+      const orderedAiSelected = value.aiOrder
+        ? value.aiOrder.filter((id) => value.aiSelected?.includes(id))
+        : value.aiSelected;
+
+      patch = mergeSettingsPatch(
+        patch,
+        buildPatch(aiGroup.path, orderedAiSelected),
+      );
+
+      if (aiGroup.orderPath && value.aiOrder) {
+        patch = mergeSettingsPatch(
+          patch,
+          buildPatch(aiGroup.orderPath, value.aiOrder),
+        );
+      }
+    }
+
+    return patch;
   }
 
   return buildPatch(setting.path, value);

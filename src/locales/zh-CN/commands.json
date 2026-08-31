@@ -12,8 +12,10 @@
   "error": "{{label}}失败：{{message}}",
   "labels": {
     "addApp": "添加应用",
+    "cancelAiRequest": "取消 AI 请求",
     "cancelFavorite": "取消收藏",
     "changeStorageLocation": "更改数据目录",
+    "checkAiConnectivity": "AI 连通性检测",
     "checkForUpdates": "检查更新",
     "cleanCache": "清理缓存",
     "clearClipboardItems": "清空记录",
@@ -33,6 +35,7 @@
     "importLegacyData": "导入旧版数据",
     "inspectBackup": "识别备份",
     "installUpdate": "安装更新",
+    "loadAiActions": "加载 AI 动作",
     "loadApps": "加载应用",
     "loadAutostart": "读取开机启动状态",
     "loadClipboardGroups": "加载分组",
@@ -60,6 +63,7 @@
     "restartAsAdmin": "以管理员权限重启",
     "resumeGlobalShortcuts": "恢复全局快捷键",
     "reveal": "打开位置",
+    "runAiAction": "AI 处理",
     "saveClipboardGroup": "保存分组",
     "saveClipboardGroupsLayout": "保存分组布局",
     "saveImage": "保存图片",
@@ -74,7 +78,8 @@
     "skipUpdateVersion": "跳过更新版本",
     "suspendGlobalShortcuts": "暂停全局快捷键",
     "toggleFavorite": "收藏",
-    "unpinItem": "取消置顶"
+    "unpinItem": "取消置顶",
+    "writeAiResult": "写回 AI 结果"
   },
   "messages": {
     "backupExported": "已导出 {{count}} 条历史记录，备份大小 {{size}}",

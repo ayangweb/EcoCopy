@@ -80,6 +80,9 @@
       "actions": {
         "title": "Quick Actions"
       },
+      "ai": {
+        "title": "AI"
+      },
       "appearance": {
         "title": "Appearance & Language"
       },
@@ -99,6 +102,9 @@
       "diagnostics": {
         "title": "Diagnostics"
       },
+      "general": {
+        "title": "General"
+      },
       "globalShortcuts": {
         "title": "Global Shortcuts"
       },
@@ -113,6 +119,9 @@
       },
       "menu": {
         "title": "Context Menu"
+      },
+      "models": {
+        "title": "Models"
       },
       "organizing": {
         "title": "Favorites & Notes"
@@ -134,6 +143,9 @@
       },
       "source": {
         "title": "App Filters"
+      },
+      "templates": {
+        "title": "Templates"
       },
       "updates": {
         "title": "Updates"
@@ -188,6 +200,30 @@
           "description": "Choose which action buttons appear when hovering over a record.",
           "title": "Visible Quick Actions"
         }
+      },
+      "ai": {
+        "autoWriteback": {
+          "description": "Automatically write AI results back to the clipboard.",
+          "title": "Auto Writeback"
+        },
+        "customTemplates": {
+          "controlLabel": "Manage",
+          "description": "Manage custom AI action templates.",
+          "title": "Action Templates"
+        },
+        "enabled": {
+          "description": "Enable AI processing features.",
+          "title": "Enable AI"
+        },
+        "models": {
+          "controlLabel": "Manage",
+          "description": "Configure AI model profiles.",
+          "title": "Model Profiles"
+        }
+      },
+      "aiGroup": {
+        "disabledHint": "Available after enabling AI",
+        "title": "AI Actions"
       },
       "appearance": {
         "fileMaxCount": {
@@ -443,8 +479,8 @@
         },
         "ai": {
           "controlLabel": "Manage",
-          "description": "AI features will be available in a future update. Configure AI action menu visibility here.",
-          "title": "AI Actions (Coming Soon)"
+          "description": "Configure how AI actions appear in the context menu.",
+          "title": "AI Actions"
         }
       },
       "organizing": {
@@ -668,6 +704,9 @@
     "tabs": {
       "about": {
         "title": "About"
+      },
+      "ai": {
+        "title": "AI"
       },
       "data": {
         "title": "Data"

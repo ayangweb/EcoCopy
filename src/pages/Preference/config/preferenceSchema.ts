@@ -344,6 +344,7 @@ export const preferenceTabs: PreferenceTab[] = [
         settings: [
           {
             control: {
+              aiGroup: { path: ["ai", "quickActions"] },
               options: ITEM_ACTION_OPTIONS,
               orderPath: ["clipboard", "content", "itemActionOrder"],
               type: "sortableCheckboxTree",
@@ -440,13 +441,16 @@ export const preferenceTabs: PreferenceTab[] = [
           },
           {
             control: {
-              options: MENU_ACTION_OPTIONS,
+              aiGroup: {
+                orderPath: ["menu", "aiOrder"],
+                path: ["menu", "aiVisible"],
+              },
+              options: [],
               orderPath: ["menu", "aiOrder"],
               type: "sortableCheckboxTree",
             },
-            disabledWhen: () => true,
             id: "menu.ai",
-            keywords: ["menu", "ai", "placeholder"],
+            keywords: ["menu", "ai", "process"],
             path: ["menu", "aiVisible"],
             value: (settings) => {
               return {
@@ -906,6 +910,55 @@ export const preferenceTabs: PreferenceTab[] = [
             value: (settings) => {
               return settings.update.includeNightly;
             },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    icon: "i-lucide:sparkles",
+    id: "ai",
+    sections: [
+      {
+        id: "general",
+        settings: [
+          {
+            control: { type: "switch" },
+            id: "ai.enabled",
+            keywords: ["ai", "enable", "open"],
+            path: ["ai", "enabled"],
+            value: (settings) => {
+              return settings.ai.enabled;
+            },
+          },
+          {
+            control: { type: "switch" },
+            id: "ai.autoWriteback",
+            keywords: ["ai", "writeback", "clipboard", "auto"],
+            path: ["ai", "autoWriteback"],
+            value: (settings) => {
+              return settings.ai.autoWriteback;
+            },
+          },
+        ],
+      },
+      {
+        id: "models",
+        settings: [
+          {
+            control: { type: "action" },
+            id: "ai.models",
+            keywords: ["ai", "model", "provider", "profile", "endpoint"],
+          },
+        ],
+      },
+      {
+        id: "templates",
+        settings: [
+          {
+            control: { type: "action" },
+            id: "ai.customTemplates",
+            keywords: ["ai", "template", "custom", "manage"],
           },
         ],
       },

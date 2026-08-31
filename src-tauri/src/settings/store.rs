@@ -156,7 +156,10 @@ fn load_from_disk(path: &Path) -> Option<Settings> {
         serde_json::from_str::<Settings>(&content)
             .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))
     }) {
-        Ok(settings) => Some(settings),
+        Ok(mut settings) => {
+            super::model::migrate_legacy_default_templates(&mut settings);
+            Some(settings)
+        }
         Err(err) => {
             log::warn!("settings file {path:?} unreadable, using defaults: {err}");
             Some(Settings::default())

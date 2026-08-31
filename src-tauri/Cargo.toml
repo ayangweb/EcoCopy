@@ -53,6 +53,8 @@ drag = "2.1"
 zip = { version = "4.6", default-features = false, features = ["deflate"] }
 walkdir = "2"
 tempfile = "3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+base64 = "0.22"
 argon2 = { version = "0.5", features = ["std"] }
 chacha20poly1305 = { version = "0.10", features = ["std"] }
 rand = "0.8"

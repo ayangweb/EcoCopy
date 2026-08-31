@@ -1,4 +1,5 @@
 mod admin;
+mod ai;
 mod autostart;
 mod backup;
 mod clipboard;
@@ -180,6 +181,11 @@ pub fn run() {
             commands::download_update,
             commands::install_update,
             commands::skip_update_version,
+            commands::get_ai_actions,
+            commands::run_ai_action,
+            commands::cancel_ai_request,
+            commands::check_ai_connectivity,
+            commands::write_ai_result_to_clipboard,
             menu::clipboard_item::popup_clipboard_item_menu,
         ])
         .on_menu_event(|app, event| {
@@ -216,6 +222,8 @@ pub fn run() {
                 clipboard::init(&handle_db)?;
                 Ok::<_, anyhow::Error>(())
             })?;
+
+            handle.manage(ai::AiSessions::default());
 
             shortcut::init(&handle, &settings.shortcuts).map_err(|err| {
                 log::error!("global shortcut initialization failed: {err:?}");

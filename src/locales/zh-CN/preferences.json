@@ -80,6 +80,9 @@
       "actions": {
         "title": "快捷动作"
       },
+      "ai": {
+        "title": "AI"
+      },
       "appearance": {
         "title": "外观与语言"
       },
@@ -99,6 +102,9 @@
       "diagnostics": {
         "title": "诊断恢复"
       },
+      "general": {
+        "title": "通用"
+      },
       "globalShortcuts": {
         "title": "全局快捷键"
       },
@@ -113,6 +119,9 @@
       },
       "menu": {
         "title": "右键菜单"
+      },
+      "models": {
+        "title": "模型"
       },
       "organizing": {
         "title": "收藏与备注"
@@ -134,6 +143,9 @@
       },
       "source": {
         "title": "应用过滤"
+      },
+      "templates": {
+        "title": "模板"
       },
       "updates": {
         "title": "更新"
@@ -188,6 +200,30 @@
           "description": "选择鼠标悬停在记录上时显示的操作按钮。",
           "title": "显示的快捷动作"
         }
+      },
+      "ai": {
+        "autoWriteback": {
+          "description": "自动将 AI 处理结果写回剪贴板。",
+          "title": "自动写回"
+        },
+        "customTemplates": {
+          "controlLabel": "管理",
+          "description": "管理自定义 AI 动作模板。",
+          "title": "动作模板"
+        },
+        "enabled": {
+          "description": "启用 AI 处理功能。",
+          "title": "启用 AI"
+        },
+        "models": {
+          "controlLabel": "管理",
+          "description": "配置 AI 模型档案。",
+          "title": "模型管理"
+        }
+      },
+      "aiGroup": {
+        "disabledHint": "启用 AI 后可配置",
+        "title": "AI 动作"
       },
       "appearance": {
         "fileMaxCount": {
@@ -443,8 +479,8 @@
         },
         "ai": {
           "controlLabel": "管理",
-          "description": "AI 功能将在后续版本中上线，届时可在此配置 AI 动作的菜单显示方式。",
-          "title": "AI 动作提升（待开发）"
+          "description": "配置 AI 处理动作在右键菜单中的显示方式。",
+          "title": "AI 动作"
         }
       },
       "organizing": {
@@ -668,6 +704,9 @@
     "tabs": {
       "about": {
         "title": "关于"
+      },
+      "ai": {
+        "title": "AI"
       },
       "data": {
         "title": "数据"

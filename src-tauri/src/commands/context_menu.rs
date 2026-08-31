@@ -24,6 +24,7 @@ pub struct ContextMenuItemPayload {
     pub accelerator: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub groups: Vec<ContextSubmenuGroupInput>,
+    pub ai_action_id: Option<String>,
 }
 
 /// Full payload needed to render the root context menu window.
