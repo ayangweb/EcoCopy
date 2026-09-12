@@ -20,6 +20,10 @@ const ADMIN_RESTARTED_ARG: &str = "--ecopaste-admin-restarted";
 #[cfg(target_os = "windows")]
 const TASK_NAME: &str = "EcoPasteAdmin";
 #[cfg(target_os = "windows")]
+const AUTOSTART_TASK_NAME: &str = "EcoPasteAdminAutostart";
+#[cfg(target_os = "windows")]
+const TASK_NAMES: [&str; 2] = [TASK_NAME, AUTOSTART_TASK_NAME];
+#[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 #[cfg(target_os = "windows")]
 const SETTINGS_FILENAME: &str = "settings.json";
@@ -107,7 +111,9 @@ pub fn is_running_as_admin() -> bool {
 pub fn is_scheduled_task_ready() -> bool {
     #[cfg(target_os = "windows")]
     {
-        is_scheduled_task_exists() && is_scheduled_task_path_valid()
+        TASK_NAMES.into_iter().all(|task_name| {
+            is_scheduled_task_exists(task_name) && is_scheduled_task_path_valid(task_name)
+        })
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -119,16 +125,18 @@ pub fn is_scheduled_task_ready() -> bool {
 pub fn sync_scheduled_task(configured: bool) {
     #[cfg(target_os = "windows")]
     {
-        if configured && is_running_as_admin() {
-            if let Err(err) = create_scheduled_task() {
-                log::warn!("sync admin scheduled task failed: {err}");
-            }
+        if !is_running_as_admin() {
             return;
         }
 
-        if !configured && is_running_as_admin() {
-            if let Err(err) = delete_scheduled_task() {
-                log::warn!("delete admin scheduled task failed: {err}");
+        for task_name in TASK_NAMES {
+            let result = if configured {
+                create_scheduled_task(task_name)
+            } else {
+                delete_scheduled_task(task_name)
+            };
+            if let Err(err) = result {
+                log::warn!("sync admin scheduled task {task_name} failed: {err}");
             }
         }
     }
@@ -174,9 +182,7 @@ pub fn handle_startup_auto_elevation() {
         }
 
         if is_running_as_admin() {
-            if let Err(err) = create_scheduled_task() {
-                log::warn!("startup admin scheduled task sync failed: {err}");
-            }
+            sync_scheduled_task(true);
             return;
         }
 
@@ -191,12 +197,12 @@ pub fn handle_startup_auto_elevation() {
 }
 
 #[cfg(target_os = "windows")]
-fn is_scheduled_task_exists() -> bool {
+fn is_scheduled_task_exists(task_name: &str) -> bool {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
     let output = Command::new("schtasks")
-        .args(["/Query", "/TN", TASK_NAME])
+        .args(["/Query", "/TN", task_name])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
 
@@ -204,7 +210,7 @@ fn is_scheduled_task_exists() -> bool {
 }
 
 #[cfg(target_os = "windows")]
-fn is_scheduled_task_path_valid() -> bool {
+fn is_scheduled_task_path_valid(task_name: &str) -> bool {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
@@ -213,7 +219,7 @@ fn is_scheduled_task_path_valid() -> bool {
         Err(_) => return false,
     };
     let output = Command::new("schtasks")
-        .args(["/Query", "/TN", TASK_NAME, "/FO", "LIST", "/V"])
+        .args(["/Query", "/TN", task_name, "/FO", "LIST", "/V"])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
 
@@ -230,21 +236,21 @@ fn is_scheduled_task_path_valid() -> bool {
 }
 
 #[cfg(target_os = "windows")]
-fn create_scheduled_task() -> Result<()> {
+fn create_scheduled_task(task_name: &str) -> Result<()> {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
     let exe = std::env::current_exe().context("failed to resolve current executable")?;
-    let action = scheduled_task_action(&exe);
+    let action = scheduled_task_action(&exe, task_name);
 
     let _ = Command::new("schtasks")
-        .args(["/Delete", "/TN", TASK_NAME, "/F"])
+        .args(["/Delete", "/TN", task_name, "/F"])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
 
     let output = Command::new("schtasks")
         .args([
-            "/Create", "/TN", TASK_NAME, "/TR", &action, "/SC", "ONCE", "/ST", "00:00", "/RL",
+            "/Create", "/TN", task_name, "/TR", &action, "/SC", "ONCE", "/ST", "00:00", "/RL",
             "HIGHEST", "/F",
         ])
         .creation_flags(CREATE_NO_WINDOW)
@@ -262,12 +268,12 @@ fn create_scheduled_task() -> Result<()> {
 }
 
 #[cfg(target_os = "windows")]
-fn delete_scheduled_task() -> Result<()> {
+fn delete_scheduled_task(task_name: &str) -> Result<()> {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
     let _ = Command::new("schtasks")
-        .args(["/Delete", "/TN", TASK_NAME, "/F"])
+        .args(["/Delete", "/TN", task_name, "/F"])
         .creation_flags(CREATE_NO_WINDOW)
         .output()
         .context("failed to delete administrator launch task")?;
@@ -276,12 +282,12 @@ fn delete_scheduled_task() -> Result<()> {
 }
 
 #[cfg(target_os = "windows")]
-fn run_via_scheduled_task() -> bool {
+fn run_via_scheduled_task(task_name: &str) -> bool {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
     let output = Command::new("schtasks")
-        .args(["/Run", "/TN", TASK_NAME])
+        .args(["/Run", "/TN", task_name])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
 
@@ -290,12 +296,14 @@ fn run_via_scheduled_task() -> bool {
 
 #[cfg(target_os = "windows")]
 fn try_launch_elevated_current_process() -> bool {
-    if can_use_scheduled_task_for_current_args()
-        && is_scheduled_task_exists()
-        && is_scheduled_task_path_valid()
-        && run_via_scheduled_task()
+    if let Some(task_name) = scheduled_task_for_args(&std::env::args().skip(1).collect::<Vec<_>>())
     {
-        return true;
+        if is_scheduled_task_exists(task_name)
+            && is_scheduled_task_path_valid(task_name)
+            && run_via_scheduled_task(task_name)
+        {
+            return true;
+        }
     }
 
     try_launch_with_uac()
@@ -382,19 +390,85 @@ fn early_data_dir(bootstrap: &Path) -> Result<PathBuf> {
 }
 
 #[cfg(target_os = "windows")]
-fn scheduled_task_action(exe: &Path) -> String {
-    format!(
+/// Persistent actions depend only on task identity, never on the creating process's arguments.
+fn scheduled_task_action(exe: &Path, task_name: &str) -> String {
+    let mut action = format!(
         "{} {}",
         windows_args::quote_arg(exe.to_string_lossy()),
         windows_args::quote_arg(ADMIN_RESTARTED_ARG)
-    )
+    );
+    if task_name == AUTOSTART_TASK_NAME {
+        action.push(' ');
+        action.push_str(crate::autostart::AUTO_LAUNCH_ARG);
+    }
+    action
 }
 
 #[cfg(target_os = "windows")]
-fn can_use_scheduled_task_for_current_args() -> bool {
-    std::env::args()
-        .skip(1)
-        .all(|arg| arg == ADMIN_RESTARTED_ARG)
+/// Fixed task actions cannot preserve file associations or arbitrary external arguments.
+fn scheduled_task_for_args(args: &[String]) -> Option<&'static str> {
+    if args
+        .iter()
+        .any(|arg| arg != ADMIN_RESTARTED_ARG && arg != crate::autostart::AUTO_LAUNCH_ARG)
+    {
+        return None;
+    }
+
+    Some(if crate::autostart::is_autostart_launch(args) {
+        AUTOSTART_TASK_NAME
+    } else {
+        TASK_NAME
+    })
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn routes_only_supported_arguments_to_the_matching_fixed_task() {
+        let cases: &[(&[&str], Option<&str>)] = &[
+            (&[], Some("EcoPasteAdmin")),
+            (&[ADMIN_RESTARTED_ARG], Some("EcoPasteAdmin")),
+            (&["--auto-launch"], Some("EcoPasteAdminAutostart")),
+            (
+                &[ADMIN_RESTARTED_ARG, "--auto-launch"],
+                Some("EcoPasteAdminAutostart"),
+            ),
+            (
+                &["--auto-launch", ADMIN_RESTARTED_ARG],
+                Some("EcoPasteAdminAutostart"),
+            ),
+            (&[r"C:\Backups\history.ecopastebak"], None),
+            (&["--auto-launch", r"C:\Backups\history.ecopastebak"], None),
+            (
+                &[ADMIN_RESTARTED_ARG, r"C:\Backups\history.ecopastebak"],
+                None,
+            ),
+            (&["--unknown"], None),
+            (&["--auto-launch", ADMIN_RESTARTED_ARG, "--unknown"], None),
+        ];
+        for (args, expected) in cases {
+            let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
+            assert_eq!(scheduled_task_for_args(&args), *expected, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn scheduled_task_preserves_autostart_source() {
+        assert_eq!(
+            scheduled_task_action(Path::new(r"C:\Eco Paste\EcoPaste.exe"), AUTOSTART_TASK_NAME),
+            r#""C:\Eco Paste\EcoPaste.exe" --ecopaste-admin-restarted --auto-launch"#
+        );
+    }
+
+    #[test]
+    fn scheduled_task_uses_internal_restart_source_for_manual_elevation() {
+        assert_eq!(
+            scheduled_task_action(Path::new(r"C:\Eco Paste\EcoPaste.exe"), TASK_NAME),
+            r#""C:\Eco Paste\EcoPaste.exe" --ecopaste-admin-restarted"#
+        );
+    }
 }
 
 #[cfg(target_os = "windows")]

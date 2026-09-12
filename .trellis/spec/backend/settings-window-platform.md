@@ -429,9 +429,9 @@ task. Keep this Rust-owned; React only toggles `general.autoStart`.
   Windows can still start the app.
 - Remove matching `StartupApproved\Run` shadow values best-effort when deleting
   Run values so Task Manager and Autoruns do not keep stale EcoPaste rows.
-- `admin::sync_scheduled_task` owns the `EcoPasteAdmin` task for administrator
-  relaunch support. Do not use that task as a second normal autostart path
-  without redesigning the interaction with `general.auto_start`.
+- `admin::sync_scheduled_task` owns the `EcoPasteAdmin` and
+  `EcoPasteAdminAutostart` tasks for administrator relaunch support. Both remain
+  on-demand helpers, not additional logon triggers; the Run entry owns autostart.
 
 ### 4. Validation & Error Matrix
 
@@ -552,15 +552,22 @@ not a frontend-only permission prompt.
   `GetTokenInformation(TokenElevation)`.
 - Release startup calls the admin auto-elevation check before normal Tauri setup
   initializes windows, tray, database, clipboard watcher, or hooks.
-- If `runAsAdmin=true` and the process is already elevated, Rust best-effort
-  syncs the highest-privilege scheduled task and continues startup.
+- Enabling administrator launch while elevated and release startup with
+  `runAsAdmin=true` both sync the two highest-privilege scheduled tasks. This
+  refreshes the legacy manual task and registers the autostart helper on upgrade.
+- Fixed actions never depend on the creating process's arguments:
+  `EcoPasteAdmin` uses `--ecopaste-admin-restarted`; `EcoPasteAdminAutostart`
+  uses `--ecopaste-admin-restarted --auto-launch`.
+- `taskReady` requires both tasks to exist and point at the current executable.
 - If `runAsAdmin=true` and the process is not elevated, Rust tries to launch an
   elevated process and exits the unelevated process only after launch succeeds.
-- Relaunch prefers a valid scheduled task only when current arguments are safe
-  for the static task action, meaning no external arguments beyond the internal
-  restart marker. Dynamic arguments such as file-open backup paths or
-  `--auto-launch` fall back to `ShellExecuteW` with the `runas` verb so they can
-  be preserved.
+- Relaunch allows fixed tasks only for no arguments, the internal restart
+  marker, `--auto-launch`, or their combination. Presence of `--auto-launch`
+  selects `EcoPasteAdminAutostart`; otherwise it selects `EcoPasteAdmin`.
+  Query, path validation, and run must use that same selected task. Any file-open
+  path or other argument falls back to `ShellExecuteW` with `runas`, preserving
+  the original arguments. Both fixed actions retain the restart marker to
+  prevent repeated startup elevation attempts.
 - React renders `AdminLaunchStatus` and sends user intent through command
   wrappers. It must not call Windows APIs or infer token elevation itself.
 
@@ -571,8 +578,8 @@ not a frontend-only permission prompt.
   `administrator permission request was cancelled or failed`; current process
   remains open.
 - Scheduled task path mismatch -> task is not considered ready; fallback to UAC.
-- `set_run_as_admin(false)` while elevated -> Rust deletes the scheduled task
-  best-effort after settings update.
+- `set_run_as_admin(false)` while elevated -> Rust attempts deletion of both
+  scheduled tasks best-effort after settings update, even if one attempt fails.
 - Early settings or storage manifest read failure -> auto-elevation is skipped
   and normal startup continues.
 
@@ -590,7 +597,9 @@ not a frontend-only permission prompt.
 ### 6. Tests Required
 
 - Backend: unit-test Windows command-line quoting for scheduled task / UAC
-  arguments.
+  arguments, both fixed task actions, and real routing for no args, autostart,
+  either marker order, file associations, and unsupported arguments. Tests must
+  not run scheduled tasks, request elevation, or modify system task state.
 - Backend: `cargo clippy -- -D warnings` must pass on Windows-specific code.
 - Backend: `cargo test` must include settings default coverage for
   `general.run_as_admin`.
