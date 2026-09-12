@@ -19,7 +19,7 @@ use macos::PlatformAutostart;
 #[cfg(target_os = "windows")]
 use windows::PlatformAutostart;
 
-pub(super) const AUTO_LAUNCH_ARG: &str = "--auto-launch";
+pub(crate) const AUTO_LAUNCH_ARG: &str = "--auto-launch";
 
 pub struct AutostartManager {
     platform: PlatformAutostart,
